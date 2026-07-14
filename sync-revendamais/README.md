@@ -1,0 +1,1 @@
+Serviço de sincronização do XML Revenda Mais com o banco de dados.

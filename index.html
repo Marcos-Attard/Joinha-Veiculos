@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Styllo Motors Loja</title>
+
+    <link
+      id="app-icon"
+      rel="icon"
+      type="image/png"
+      sizes="512x512"
+      href="/styllo-motors-icon.png?v=1"
+    />
+
+    <link
+      id="app-shortcut-icon"
+      rel="shortcut icon"
+      type="image/png"
+      href="/styllo-motors-icon.png?v=1"
+    />
+
+    <link
+      id="app-apple-touch-icon"
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/styllo-motors-icon.png?v=1"
+    />
+
+    <link
+      id="app-manifest"
+      rel="manifest"
+      href="/manifest-loja.webmanifest"
+    />
+
+    <meta
+      id="app-name"
+      name="application-name"
+      content="Styllo Motors Loja"
+    />
+
+    <meta
+      id="app-apple-title"
+      name="apple-mobile-web-app-title"
+      content="Styllo Motors Loja"
+    />
+
+    <meta name="theme-color" content="#000000" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+
+    <script>
+      (function () {
+        var path = window.location.pathname;
+
+        var isStaff =
+          path === "/login" ||
+          path.indexOf("/login/") === 0 ||
+          path === "/dashboard" ||
+          path.indexOf("/dashboard/") === 0 ||
+          path === "/estoque" ||
+          path.indexOf("/estoque/") === 0 ||
+          path === "/leads" ||
+          path.indexOf("/leads/") === 0 ||
+          path === "/integracoes" ||
+          path.indexOf("/integracoes/") === 0 ||
+          path === "/fechado" ||
+          path.indexOf("/fechado/") === 0;
+
+        if (!isStaff) {
+          return;
+        }
+
+        document.title = "Styllo Staff";
+
+        var staffIcon = "/styllo-staff-icon.png?v=3";
+        var staffManifest = "/manifest-staff.webmanifest";
+
+        var appIcon = document.getElementById("app-icon");
+        var shortcutIcon = document.getElementById("app-shortcut-icon");
+        var appleIcon = document.getElementById("app-apple-touch-icon");
+        var appManifest = document.getElementById("app-manifest");
+        var appName = document.getElementById("app-name");
+        var appAppleTitle = document.getElementById("app-apple-title");
+
+        if (appIcon) appIcon.setAttribute("href", staffIcon);
+        if (shortcutIcon) shortcutIcon.setAttribute("href", staffIcon);
+        if (appleIcon) appleIcon.setAttribute("href", staffIcon);
+        if (appManifest) appManifest.setAttribute("href", staffManifest);
+        if (appName) appName.setAttribute("content", "Styllo Staff");
+        if (appAppleTitle) appAppleTitle.setAttribute("content", "Styllo Staff");
+
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+
+        var onesignalScript = document.createElement("script");
+        onesignalScript.src =
+          "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
+        onesignalScript.defer = true;
+
+        onesignalScript.onload = function () {
+          window.OneSignalDeferred.push(async function (OneSignal) {
+            await OneSignal.init({
+              appId: "4401049a-9c68-4c10-9f19-f05a9a55c2e9"
+            });
+          });
+        };
+
+        document.head.appendChild(onesignalScript);
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
