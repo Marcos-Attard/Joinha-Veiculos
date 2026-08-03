@@ -2,14 +2,18 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { parseMoney, somenteNumeros, formatarPreco } from "@/features/showroom/utils/formatters";
+import {
+  parseMoney,
+  somenteNumeros,
+  formatarPreco,
+} from "@/features/showroom/utils/formatters";
 import { validarCPF } from "@/features/showroom/utils/validators";
 import {
   carregarEstoqueSupabase,
   enviarParaN8N,
 } from "@/features/showroom/services/showroomService";
 import {
-  exeascutarAnaliseCredito,
+  executarAnaliseCredito,
   confirmarEnvioLead,
 } from "@/features/showroom/services/creditFlowService";
 import VehicleDetail from "@/features/showroom/components/VehicleDetail";
@@ -44,7 +48,6 @@ const Showroom = () => {
   const [isSimulationOpen, setIsSimulationOpen] = useState(false);
   const [aceiteTermos, setAceiteTermos] = useState(false);
 
-  // Estados para o fluxo de confirmação e duplicidade
   const [isDuplicate, setIsDuplicate] = useState(false);
   const [showConfirmStep, setShowConfirmStep] = useState(false);
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
@@ -90,7 +93,6 @@ const Showroom = () => {
     }
   }, [messages, isLoading]);
 
-  // Resetar estados de confirmação e duplicidade ao fechar ou trocar de carro
   useEffect(() => {
     if (selectedCar) {
       setIsDuplicate(false);
@@ -98,7 +100,6 @@ const Showroom = () => {
     }
   }, [selectedCar]);
 
-  // Declaração das variáveis de cálculo e validação do formulário
   const valorCarroSelecionado = Number(selectedCar?.preco || 0);
   const entradaMinima = valorCarroSelecionado * 0.3;
   const entradaInformada = parseMoney(simulationData.entrada);
@@ -108,12 +109,10 @@ const Showroom = () => {
   const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
     simulationData.email.trim()
   );
-  const whatsappValido =
-    somenteNumeros(simulationData.whatsapp).length === 11;
+  const whatsappValido = somenteNumeros(simulationData.whatsapp).length === 11;
   const cpfValido = validarCPF(simulationData.cpf);
   const rendaValida = rendaInformada > 0;
-  const entradaValida =
-    entradaInformada >= entradaMinima && entradaMinima > 0;
+  const entradaValida = entradaInformada >= entradaMinima && entradaMinima > 0;
 
   const formularioCreditoValido =
     nomeValido &&
@@ -130,7 +129,9 @@ const Showroom = () => {
     if (!cpfValido) return "Informe um CPF válido.";
     if (!rendaValida) return "Informe sua renda mensal.";
     if (!entradaValida) {
-      return `A entrada mínima para este veículo é ${formatarPreco(entradaMinima)}.`;
+      return `A entrada mínima para este veículo é ${formatarPreco(
+        entradaMinima
+      )}.`;
     }
 
     return "";
@@ -182,7 +183,6 @@ const Showroom = () => {
       simulationResults,
       setIsSubmittingLead,
       () => {
-        // Limpar fluxo e redirecionar para a Home
         setIsChatActive(false);
         setSelectedCar(null);
         setIsSimulationOpen(false);
@@ -191,7 +191,7 @@ const Showroom = () => {
         setAceiteTermos(false);
         setShowConfirmStep(false);
         setIsDuplicate(false);
-        
+
         navigate("/");
       }
     );
@@ -202,7 +202,7 @@ const Showroom = () => {
     setMessages([
       {
         id: "1",
-        text: "Olá! Sou o Jarvis, assistente virtual da Styllo Motors. Poderia me informar seu nome?",
+        text: "Olá! Sou o Jarvis, assistente virtual da Joinha Veículos. Poderia me informar seu nome?",
         sender: "ai",
       },
     ]);
@@ -218,7 +218,7 @@ const Showroom = () => {
       { id: Date.now().toString(), text: txt, sender: "user" },
     ]);
     setInputValue("");
-    
+
     enviarParaN8N(
       txt,
       lastSearchState,
@@ -246,10 +246,7 @@ const Showroom = () => {
   return (
     <div className="flex flex-col items-center justify-between h-screen w-full bg-black py-10 px-4 overflow-hidden text-white font-sans">
       {!isChatActive ? (
-        <WelcomeScreen
-          logoSrc={logoSrc}
-          startAgente={startAgente}
-        />
+        <WelcomeScreen logoSrc={logoSrc} startAgente={startAgente} />
       ) : (
         <ChatAssistant
           logoSrc={logoSrc}

@@ -54,7 +54,7 @@ const TrocarSenha = () => {
       }
 
       const { error: profileError } = await supabase
-        .from("profiles")
+        .from("profiles_joinha")
         .update({
           precisa_trocar_senha: false,
         })

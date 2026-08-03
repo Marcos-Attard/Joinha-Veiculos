@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Car,
@@ -10,8 +10,9 @@ import {
   X,
   Settings2,
   Shield,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import JoinhaLogo from "@/assets/Styllo-Logo.png";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -21,24 +22,36 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const role = (localStorage.getItem('auth_role') || 'lojista').trim().toLowerCase();
-  const canManageGerentes = ['lojista', 'admin', 'adm', 'administrador'].includes(role);
+  const role = (localStorage.getItem("auth_role") || "lojista")
+    .trim()
+    .toLowerCase();
+
+  const canManageGerentes = [
+    "lojista",
+    "admin",
+    "adm",
+    "administrador",
+  ].includes(role);
+
+  const logoSrc =
+    typeof JoinhaLogo === "string" ? JoinhaLogo : JoinhaLogo?.src || "";
 
   const menuItems =
-    role === 'vendedor'
+    role === "vendedor"
       ? [
-          { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
-          { icon: Users, label: 'Leads', path: '/leads' },
+          { icon: LayoutDashboard, label: "Início", path: "/dashboard" },
+          { icon: Car, label: "Estoque", path: "/estoque" },
+          { icon: Users, label: "Leads", path: "/leads" },
         ]
       : [
-          { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
-          { icon: Car, label: 'Estoque', path: '/estoque' },
-          { icon: Users, label: 'Leads', path: '/leads' },
-          { icon: Users, label: 'Vendedores', path: '/vendedores' },
+          { icon: LayoutDashboard, label: "Início", path: "/dashboard" },
+          { icon: Car, label: "Estoque", path: "/estoque" },
+          { icon: Users, label: "Leads", path: "/leads" },
+          { icon: Users, label: "Vendedores", path: "/vendedores" },
           ...(canManageGerentes
-            ? [{ icon: Shield, label: 'Gerentes', path: '/gerentes' }]
+            ? [{ icon: Shield, label: "Gerentes", path: "/gerentes" }]
             : []),
-          { icon: Settings2, label: 'Integrações', path: '/integracoes' },
+          { icon: Settings2, label: "Integrações", path: "/integracoes" },
         ];
 
   const toggleMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -60,15 +73,16 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
         <div className="flex justify-center py-10 px-6">
           <img
-            src="https://www.styllomultimarca.com.br/sites/styllomultimarca.com.br/img/img-og.png"
-            alt="Styllo Motors"
-            className="w-[200px] h-auto object-contain"
+            src={logoSrc}
+            alt="Joinha Veículos"
+            className="w-[190px] h-auto object-contain bg-white"
           />
         </div>
 
         <nav className="flex-1 px-4 space-y-2">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
+
             return (
               <Link
                 key={item.path}
@@ -83,7 +97,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               >
                 <item.icon
                   size={20}
-                  className={cn("shrink-0", isActive ? "text-black" : "text-white")}
+                  className={cn(
+                    "shrink-0",
+                    isActive ? "text-black" : "text-white"
+                  )}
                 />
                 <span>{item.label}</span>
               </Link>
@@ -94,18 +111,20 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         <div className="p-6 border-t border-zinc-900 bg-black">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-[#d4af37] font-black border border-zinc-700">
-              {role === 'vendedor' ? 'VN' : role === 'gerente' ? 'GR' : 'AD'}
+              {role === "vendedor" ? "VN" : role === "gerente" ? "GR" : "AD"}
             </div>
+
             <div className="flex flex-col">
               <span className="text-xs font-bold text-white">
-                {role === 'vendedor'
-                  ? 'Vendedor'
-                  : role === 'gerente'
-                    ? 'Gerente'
-                    : 'Administrador'}
+                {role === "vendedor"
+                  ? "Vendedor"
+                  : role === "gerente"
+                  ? "Gerente"
+                  : "Administrador"}
               </span>
+
               <span className="text-[10px] text-zinc-500 uppercase tracking-widest">
-                Painel Styllo
+                Painel Joinha
               </span>
             </div>
           </div>
@@ -127,8 +146,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           >
             <Menu size={32} />
           </button>
+
           <h2 className="text-xs font-black text-zinc-500 uppercase tracking-[0.3em]">
-            {menuItems.find((i) => i.path === location.pathname)?.label || 'Dashboard'}
+            {menuItems.find((i) => i.path === location.pathname)?.label ||
+              "Dashboard"}
           </h2>
         </header>
 

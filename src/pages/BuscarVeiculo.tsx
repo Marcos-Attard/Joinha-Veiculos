@@ -95,7 +95,7 @@ const BuscarVeiculo = () => {
 
       try {
         const { data, error } = await supabase
-          .from("vehicles_clean")
+          .from("vehicles_joinha")
           .select("make")
           .not("make", "is", null)
           .order("make", { ascending: true })
@@ -135,7 +135,7 @@ const BuscarVeiculo = () => {
 
       try {
         const { data, error } = await supabase
-          .from("vehicles_clean")
+          .from("vehicles_joinha")
           .select("model")
           .eq("make", marca)
           .not("model", "is", null)
@@ -216,7 +216,7 @@ const BuscarVeiculo = () => {
     setSelectedVehicle(null);
 
     try {
-      let query = supabase.from("vehicles_clean").select("*");
+      let query = supabase.from("vehicles_joinha").select("*");
 
       const placaNormalizada = normalizePlate(placa);
 
@@ -263,8 +263,8 @@ const BuscarVeiculo = () => {
             Busca Veículo no Estoque
           </h1>
           <p className="text-zinc-400 text-sm mt-2">
-            Consulte o estoque por placa, marca ou modelo. O vendedor pode apenas
-            visualizar as informações, sem editar nada.
+            Consulte o estoque da Joinha por placa, marca ou modelo. O vendedor
+            pode apenas visualizar as informações, sem editar nada.
           </p>
         </div>
 
@@ -314,7 +314,7 @@ const BuscarVeiculo = () => {
                 ))}
               </select>
               <p className="text-xs text-zinc-500">
-                Lista real das marcas existentes no estoque.
+                Lista real das marcas existentes no estoque da Joinha.
               </p>
             </div>
 
@@ -612,72 +612,114 @@ const BuscarVeiculo = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-zinc-500 uppercase text-xs font-bold">Marca</p>
-                  <p className="text-white font-semibold">{selectedVehicle.make || "-"}</p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.make || "-"}
+                  </p>
                 </div>
 
                 <div>
                   <p className="text-zinc-500 uppercase text-xs font-bold">Modelo</p>
-                  <p className="text-white font-semibold">{selectedVehicle.model || "-"}</p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.model || "-"}
+                  </p>
                 </div>
 
                 <div>
-                  <p className="text-zinc-500 uppercase text-xs font-bold">Base Model</p>
-                  <p className="text-white font-semibold">{selectedVehicle.base_model || "-"}</p>
+                  <p className="text-zinc-500 uppercase text-xs font-bold">
+                    Base Model
+                  </p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.base_model || "-"}
+                  </p>
                 </div>
 
                 <div>
                   <p className="text-zinc-500 uppercase text-xs font-bold">Versão</p>
-                  <p className="text-white font-semibold">{selectedVehicle.version || "-"}</p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.version || "-"}
+                  </p>
                 </div>
 
                 <div>
-                  <p className="text-zinc-500 uppercase text-xs font-bold">Ano Modelo</p>
-                  <p className="text-white font-semibold">{selectedVehicle.year || "-"}</p>
+                  <p className="text-zinc-500 uppercase text-xs font-bold">
+                    Ano Modelo
+                  </p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.year || "-"}
+                  </p>
                 </div>
 
                 <div>
-                  <p className="text-zinc-500 uppercase text-xs font-bold">Ano Fabricação</p>
-                  <p className="text-white font-semibold">{selectedVehicle.fabric_year || "-"}</p>
+                  <p className="text-zinc-500 uppercase text-xs font-bold">
+                    Ano Fabricação
+                  </p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.fabric_year || "-"}
+                  </p>
                 </div>
 
                 <div>
                   <p className="text-zinc-500 uppercase text-xs font-bold">Placa</p>
-                  <p className="text-white font-semibold">{selectedVehicle.plate || "-"}</p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.plate || "-"}
+                  </p>
                 </div>
 
                 <div>
-                  <p className="text-zinc-500 uppercase text-xs font-bold">Final da Placa</p>
-                  <p className="text-white font-semibold">{selectedVehicle.plate_final || "-"}</p>
+                  <p className="text-zinc-500 uppercase text-xs font-bold">
+                    Final da Placa
+                  </p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.plate_final || "-"}
+                  </p>
                 </div>
 
                 <div>
-                  <p className="text-zinc-500 uppercase text-xs font-bold">Quilometragem</p>
-                  <p className="text-white font-semibold">{selectedVehicle.mileage || "-"}</p>
+                  <p className="text-zinc-500 uppercase text-xs font-bold">
+                    Quilometragem
+                  </p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.mileage || "-"}
+                  </p>
                 </div>
 
                 <div>
                   <p className="text-zinc-500 uppercase text-xs font-bold">Câmbio</p>
-                  <p className="text-white font-semibold">{selectedVehicle.gear || "-"}</p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.gear || "-"}
+                  </p>
                 </div>
 
                 <div>
-                  <p className="text-zinc-500 uppercase text-xs font-bold">Combustível</p>
-                  <p className="text-white font-semibold">{selectedVehicle.fuel || "-"}</p>
+                  <p className="text-zinc-500 uppercase text-xs font-bold">
+                    Combustível
+                  </p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.fuel || "-"}
+                  </p>
                 </div>
 
                 <div>
                   <p className="text-zinc-500 uppercase text-xs font-bold">Cor</p>
-                  <p className="text-white font-semibold">{selectedVehicle.color || "-"}</p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.color || "-"}
+                  </p>
                 </div>
 
                 <div>
                   <p className="text-zinc-500 uppercase text-xs font-bold">Portas</p>
-                  <p className="text-white font-semibold">{selectedVehicle.doors || "-"}</p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.doors || "-"}
+                  </p>
                 </div>
 
                 <div>
-                  <p className="text-zinc-500 uppercase text-xs font-bold">Categoria</p>
-                  <p className="text-white font-semibold">{selectedVehicle.category || "-"}</p>
+                  <p className="text-zinc-500 uppercase text-xs font-bold">
+                    Categoria
+                  </p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.category || "-"}
+                  </p>
                 </div>
 
                 <div>
@@ -688,7 +730,9 @@ const BuscarVeiculo = () => {
                 </div>
 
                 <div>
-                  <p className="text-zinc-500 uppercase text-xs font-bold">Preço Promocional</p>
+                  <p className="text-zinc-500 uppercase text-xs font-bold">
+                    Preço Promocional
+                  </p>
                   <p className="text-white font-semibold">
                     {selectedVehicle.promo_price
                       ? formatMoney(selectedVehicle.promo_price)
@@ -698,31 +742,47 @@ const BuscarVeiculo = () => {
 
                 <div>
                   <p className="text-zinc-500 uppercase text-xs font-bold">Loja</p>
-                  <p className="text-white font-semibold">{selectedVehicle.seller || "-"}</p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.seller || "-"}
+                  </p>
                 </div>
 
                 <div>
-                  <p className="text-zinc-500 uppercase text-xs font-bold">Telefone</p>
-                  <p className="text-white font-semibold">{selectedVehicle.phone || "-"}</p>
+                  <p className="text-zinc-500 uppercase text-xs font-bold">
+                    Telefone
+                  </p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.phone || "-"}
+                  </p>
                 </div>
 
                 <div>
                   <p className="text-zinc-500 uppercase text-xs font-bold">Cidade</p>
-                  <p className="text-white font-semibold">{selectedVehicle.city || "-"}</p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.city || "-"}
+                  </p>
                 </div>
 
                 <div>
-                  <p className="text-zinc-500 uppercase text-xs font-bold">Estado</p>
-                  <p className="text-white font-semibold">{selectedVehicle.state || "-"}</p>
+                  <p className="text-zinc-500 uppercase text-xs font-bold">
+                    Estado
+                  </p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.state || "-"}
+                  </p>
                 </div>
 
                 <div>
                   <p className="text-zinc-500 uppercase text-xs font-bold">Bairro</p>
-                  <p className="text-white font-semibold">{selectedVehicle.neighborhood || "-"}</p>
+                  <p className="text-white font-semibold">
+                    {selectedVehicle.neighborhood || "-"}
+                  </p>
                 </div>
 
                 <div>
-                  <p className="text-zinc-500 uppercase text-xs font-bold">Rua / Número</p>
+                  <p className="text-zinc-500 uppercase text-xs font-bold">
+                    Rua / Número
+                  </p>
                   <p className="text-white font-semibold">
                     {selectedVehicle.street || "-"}{" "}
                     {selectedVehicle.number ? `, ${selectedVehicle.number}` : ""}

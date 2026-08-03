@@ -64,7 +64,7 @@ const Gerentes = () => {
       setLoading(true);
 
       const { data, error } = await supabase
-        .from("profiles")
+        .from("profiles_joinha")
         .select("id, nome, ativo, role")
         .eq("role", "gerente")
         .order("nome", { ascending: true });
@@ -120,7 +120,7 @@ const Gerentes = () => {
       setProcessingId(gerenteId);
 
       const { error } = await supabase
-        .from("profiles")
+        .from("profiles_joinha")
         .update({ ativo: proximoStatus })
         .eq("id", gerenteId)
         .eq("role", "gerente");
@@ -166,7 +166,9 @@ const Gerentes = () => {
     }
 
     if (senhaTemporaria.length < 6) {
-      showError("A senha provisória do gerente deve ter pelo menos 6 caracteres.");
+      showError(
+        "A senha provisória do gerente deve ter pelo menos 6 caracteres."
+      );
       return;
     }
 
@@ -190,7 +192,9 @@ const Gerentes = () => {
       }
 
       if (!data?.success) {
-        throw new Error(data?.error || data?.message || "Erro ao cadastrar gerente.");
+        throw new Error(
+          data?.error || data?.message || "Erro ao cadastrar gerente."
+        );
       }
 
       showSuccess("Gerente cadastrado com sucesso.");
@@ -232,7 +236,8 @@ const Gerentes = () => {
             Gerentes
           </h1>
           <p className="text-zinc-400 text-sm mt-2">
-            Cadastre gerentes e controle quem pode operar as áreas administrativas.
+            Cadastre gerentes e controle quem pode operar as áreas
+            administrativas.
           </p>
         </div>
 
@@ -274,7 +279,8 @@ const Gerentes = () => {
                   Cadastrar Gerente
                 </h2>
                 <p className="text-zinc-400 text-sm mt-2">
-                  O novo gerente será criado no Auth e em profiles, sem entrar no rodízio.
+                  O novo gerente será criado no Auth e em profiles_joinha, sem
+                  entrar no rodízio.
                 </p>
               </div>
 
@@ -351,7 +357,8 @@ const Gerentes = () => {
               </div>
 
               <div className="rounded-xl border border-zinc-800 bg-black p-4 text-sm text-zinc-400">
-                O gerente terá acesso operacional administrativo, mas não participa do rodízio.
+                O gerente terá acesso operacional administrativo, mas não
+                participa do rodízio.
               </div>
 
               <div className="flex flex-wrap gap-3">
@@ -379,9 +386,7 @@ const Gerentes = () => {
               </span>
               <Shield size={18} className="text-[#d4af37]" />
             </div>
-            <div className="text-4xl font-black text-white">
-              {totalGerentes}
-            </div>
+            <div className="text-4xl font-black text-white">{totalGerentes}</div>
           </CardContent>
         </Card>
 

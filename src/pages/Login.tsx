@@ -22,6 +22,8 @@ const Login = () => {
     localStorage.removeItem("auth_nome");
     localStorage.removeItem("vendedor_id");
     localStorage.removeItem("force_change_password");
+    localStorage.removeItem("onesignal_subscription_id");
+    localStorage.removeItem("app_loja");
   };
 
   useEffect(() => {
@@ -66,18 +68,22 @@ const Login = () => {
         throw new Error("Usuário não encontrado.");
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role, vendedor_id, ativo, nome, precisa_trocar_senha")
+      const { data: profiles, error: profileError } = await (supabase as any)
+        .from("profiles_joinha")
+        .select("id, role, vendedor_id, ativo, nome, precisa_trocar_senha")
         .eq("id", data.user.id)
-        .single();
+        .limit(1);
 
       if (profileError) {
         throw profileError;
       }
 
+      const profile = Array.isArray(profiles) ? profiles[0] : null;
+
       if (!profile) {
-        throw new Error("Perfil do usuário não encontrado.");
+        throw new Error(
+          "Este usuário existe no Auth, mas ainda não tem perfil na Joinha."
+        );
       }
 
       const profileData = profile as any;
@@ -86,11 +92,25 @@ const Login = () => {
         throw new Error("Usuário desativado.");
       }
 
-      const normalizedRole = String(profileData.role || "").trim().toLowerCase();
-      const nome = profileData.nome ? String(profileData.nome).trim() : "";
-      const vendedorId = profileData.vendedor_id
-        ? String(profileData.vendedor_id)
-        : "";
+      const normalizedRole = String(profileData.role || "")
+        .trim()
+        .toLowerCase();
+
+      if (!normalizedRole) {
+        throw new Error("Perfil sem função definida.");
+      }
+
+      const nome = profileData.nome
+        ? String(profileData.nome).trim()
+        : "Usuário Joinha";
+
+      const vendedorId =
+        profileData.vendedor_id !== null &&
+        profileData.vendedor_id !== undefined &&
+        String(profileData.vendedor_id).trim() !== ""
+          ? String(profileData.vendedor_id)
+          : "";
+
       const forceChangePassword =
         (normalizedRole === "vendedor" || normalizedRole === "gerente") &&
         profileData.precisa_trocar_senha === true;
@@ -100,6 +120,7 @@ const Login = () => {
       localStorage.setItem("auth_role", normalizedRole);
       localStorage.setItem("auth_nome", nome);
       localStorage.setItem("vendedor_id", vendedorId);
+      localStorage.setItem("app_loja", "joinha");
       localStorage.setItem(
         "force_change_password",
         forceChangePassword ? "true" : "false"
@@ -116,7 +137,9 @@ const Login = () => {
     } catch (err: any) {
       await supabase.auth.signOut().catch(() => {});
       clearStaffAuthStorage();
-      showError(err.message || "Erro ao entrar.");
+
+      console.error("Erro no login Joinha:", err);
+      showError(err?.message || "Erro ao entrar.");
     } finally {
       setLoading(false);
     }
@@ -127,7 +150,7 @@ const Login = () => {
       <Card className="w-full max-w-md bg-black border-zinc-800 shadow-2xl">
         <CardHeader className="border-b border-zinc-900">
           <CardTitle className="text-white text-xl font-black">
-            Acesso do Staff
+            Acesso do Staff - Joinha Veículos
           </CardTitle>
         </CardHeader>
 

@@ -58,8 +58,8 @@ const Index = () => {
         const name = localStorage.getItem("auth_nome") || "";
         setUserName(name);
 
-        const { count: stockCount, error: stockError } = await supabase
-          .from("vehicles_clean")
+        const { count: stockCount, error: stockError } = await (supabase as any)
+          .from("vehicles_joinha")
           .select("*", { count: "exact", head: true })
           .eq("available", true);
 
@@ -67,20 +67,20 @@ const Index = () => {
 
         setEstoqueCount(stockCount || 0);
 
-        let leadsQuery = supabase
-          .from("Leads_Credito")
+        let leadsQuery = (supabase as any)
+          .from("leads_credito_joinha")
           .select("*", { count: "exact", head: true });
 
-        let novosHojeQuery = supabase
-          .from("Leads_Credito")
+        let novosHojeQuery = (supabase as any)
+          .from("leads_credito_joinha")
           .select("*", { count: "exact", head: true })
           .gte(
             "created_at",
             new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
           );
 
-        let aguardandoQuery = supabase
-          .from("Leads_Credito")
+        let aguardandoQuery = (supabase as any)
+          .from("leads_credito_joinha")
           .select("*", { count: "exact", head: true })
           .or(
             "notificado_status.is.null,notificado_status.eq.false,notificado_status.eq.Pendente,notificado_status.eq.SIM"
@@ -109,32 +109,40 @@ const Index = () => {
         setAguardandoCount(aguardando || 0);
 
         if (isLojista || role === "gerente") {
-          const { data: vendedoresStats, error: vendedoresStatsError } =
-            await supabase.rpc("get_vendedores_dashboard_stats");
+          const { count: totalVendedores, error: totalVendedoresError } =
+            await (supabase as any)
+              .from("vendedores_joinha")
+              .select("*", { count: "exact", head: true });
 
-          if (vendedoresStatsError) throw vendedoresStatsError;
+          if (totalVendedoresError) throw totalVendedoresError;
 
-          const stats = Array.isArray(vendedoresStats)
-            ? vendedoresStats[0]
-            : vendedoresStats;
+          const { count: ativosVendedores, error: ativosVendedoresError } =
+            await (supabase as any)
+              .from("vendedores_joinha")
+              .select("*", { count: "exact", head: true })
+              .eq("ativo", true);
 
-          setVendedoresTotal(Number(stats?.total || 0));
-          setVendedoresAtivos(Number(stats?.ativos || 0));
+          if (ativosVendedoresError) throw ativosVendedoresError;
+
+          setVendedoresTotal(totalVendedores || 0);
+          setVendedoresAtivos(ativosVendedores || 0);
         }
 
         if (canManageGerentes) {
-          const { count: totalGerentes, error: totalGerentesError } = await supabase
-            .from("profiles")
-            .select("*", { count: "exact", head: true })
-            .eq("role", "gerente");
+          const { count: totalGerentes, error: totalGerentesError } =
+            await (supabase as any)
+              .from("profiles_joinha")
+              .select("*", { count: "exact", head: true })
+              .eq("role", "gerente");
 
           if (totalGerentesError) throw totalGerentesError;
 
-          const { count: ativosGerentes, error: ativosGerentesError } = await supabase
-            .from("profiles")
-            .select("*", { count: "exact", head: true })
-            .eq("role", "gerente")
-            .eq("ativo", true);
+          const { count: ativosGerentes, error: ativosGerentesError } =
+            await (supabase as any)
+              .from("profiles_joinha")
+              .select("*", { count: "exact", head: true })
+              .eq("role", "gerente")
+              .eq("ativo", true);
 
           if (ativosGerentesError) throw ativosGerentesError;
 
@@ -142,7 +150,7 @@ const Index = () => {
           setGerentesAtivos(ativosGerentes || 0);
         }
       } catch (error) {
-        console.error("Erro ao carregar contadores:", error);
+        console.error("Erro ao carregar contadores da Joinha:", error);
       }
     };
 
@@ -150,8 +158,8 @@ const Index = () => {
   }, [canManageGerentes, isLojista, isVendedor, vendedorId, role]);
 
   const subtitle = isVendedor
-    ? "Acesse seus leads ou consulte veículos do estoque."
-    : "Resumo da Styllo Motors hoje.";
+    ? "Acesse seus leads ou consulte veículos do estoque da Joinha."
+    : "Resumo da Joinha Veículos hoje.";
 
   const goToLeads = () => navigate("/leads");
   const goToStock = () => navigate("/estoque");
@@ -173,8 +181,8 @@ const Index = () => {
 
       const id = Number(vendedorId);
 
-      const { error } = await supabase
-        .from("Vendedores")
+      const { error } = await (supabase as any)
+        .from("vendedores_joinha")
         .update({
           onesignal_subscription_id: subscriptionId,
         })
@@ -182,7 +190,7 @@ const Index = () => {
 
       if (error) {
         console.error(
-          "Erro ao atualizar onesignal_subscription_id do vendedor:",
+          "Erro ao atualizar onesignal_subscription_id do vendedor Joinha:",
           error
         );
         return false;
@@ -191,7 +199,7 @@ const Index = () => {
       localStorage.setItem("onesignal_subscription_id", subscriptionId);
       return true;
     } catch (error) {
-      console.error("Erro ao sincronizar subscription do vendedor:", error);
+      console.error("Erro ao sincronizar subscription do vendedor Joinha:", error);
       return false;
     }
   };
@@ -513,8 +521,8 @@ const Index = () => {
                   Consultar Estoque
                 </h2>
                 <p className="text-zinc-400">
-                  Consulte o estoque real vindo do Revenda Mais e visualize os
-                  detalhes dos veículos disponíveis.
+                  Consulte o estoque real da Joinha e visualize os detalhes dos
+                  veículos disponíveis.
                 </p>
                 <Button
                   onClick={goToStock}
@@ -529,7 +537,7 @@ const Index = () => {
               <CardContent className="p-6 md:p-8 flex flex-col gap-4">
                 <h2 className="text-2xl font-black text-white">Vendedores</h2>
                 <p className="text-zinc-400">
-                  Ative ou desative vendedores para controlar o rodízio de leads
+                  Ative ou desative vendedores da Joinha para controlar o rodízio de leads
                   e o acesso ao app.
                 </p>
                 <Button
@@ -546,7 +554,7 @@ const Index = () => {
                 <CardContent className="p-6 md:p-8 flex flex-col gap-4">
                   <h2 className="text-2xl font-black text-white">Gerentes</h2>
                   <p className="text-zinc-400">
-                    Cadastre gerentes e controle quem pode operar as áreas administrativas.
+                    Cadastre gerentes da Joinha e controle quem pode operar as áreas administrativas.
                   </p>
                   <div className="text-sm text-zinc-500">
                     {gerentesAtivos} ativos • {gerentesInativos} inativos
@@ -567,7 +575,7 @@ const Index = () => {
                   Central de Leads
                 </h2>
                 <p className="text-zinc-400">
-                  Visualize todos os contatos e acompanhe seus clientes.
+                  Visualize os contatos da Joinha e acompanhe seus clientes.
                 </p>
                 <Button
                   onClick={goToLeads}
@@ -607,7 +615,7 @@ const Index = () => {
                 <Users size={22} className="text-[#d4af37]" />
               </div>
               <p className="text-zinc-400">
-                Veja apenas os leads vinculados ao seu atendimento.
+                Veja apenas os leads vinculados ao seu atendimento na Joinha.
               </p>
               <div className="text-4xl font-black text-white">{leadsCount}</div>
               <Button

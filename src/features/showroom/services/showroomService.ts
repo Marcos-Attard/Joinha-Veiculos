@@ -11,6 +11,7 @@ import {
 
 const PAGE_SIZE = 5;
 const FALLBACK_LIMIT = 300;
+const ESTOQUE_TABLE = "vehicles_joinha";
 
 const normalize = (v: any) =>
   String(v || "")
@@ -94,7 +95,14 @@ const normalizeCategory = (value: any) => {
   }
 
   if (
-    ["carro", "carros", "automovel", "automoveis", "veiculo", "veiculos"].includes(t)
+    [
+      "carro",
+      "carros",
+      "automovel",
+      "automoveis",
+      "veiculo",
+      "veiculos",
+    ].includes(t)
   ) {
     return "carro";
   }
@@ -242,23 +250,35 @@ const mapVehicles = (vehicles: any[]) => {
     id: v.external_id,
     marca: v.make,
     modelo: v.model,
-    preco: v.price,
-    images_large: Array.isArray(v.images_large) ? v.images_large.filter(Boolean) : [],
+    preco: v.promo_price || v.price,
+    preco_original: v.price,
+    promo_price: v.promo_price,
+    images_large: Array.isArray(v.images_large)
+      ? v.images_large.filter(Boolean)
+      : [],
     foto_url:
-      (Array.isArray(v.images_large) && v.images_large.length > 0 && v.images_large[0]) ||
+      (Array.isArray(v.images_large) &&
+        v.images_large.length > 0 &&
+        v.images_large[0]) ||
       v.image ||
       v.image_url ||
       v.foto ||
       "https://via.placeholder.com/400x225?text=Sem+Foto",
     ano: v.year,
+    fabric_year: v.fabric_year,
     km: v.mileage,
     cambio: v.gear,
     combustivel: v.fuel,
+    motor: v.motor,
     cor: v.color,
     portas: v.doors || "---",
     placa_final: v.plate_final || "---",
     opcionais: v.options_clean || "",
     descricao: v.description_clean || "",
+    version: v.version || "",
+    base_model: v.base_model || "",
+    category: v.category || "",
+    plate: v.plate || "",
     street: v.street,
     number: v.number,
     neighborhood: v.neighborhood,
@@ -295,7 +315,11 @@ const applyFilters = (
   const priceMax = firstFilled(filtro?.price_max);
   const promoPriceMin = firstFilled(filtro?.promo_price_min);
   const promoPriceMax = firstFilled(filtro?.promo_price_max);
-  const plateFinal = firstFilled(filtro?.plate_final, filtro?.placaFinal, filtro?.finalPlaca);
+  const plateFinal = firstFilled(
+    filtro?.plate_final,
+    filtro?.placaFinal,
+    filtro?.finalPlaca
+  );
   const city = firstFilled(filtro?.city, filtro?.cidade);
   const state = firstFilled(filtro?.state, filtro?.estado);
   const neighborhood = firstFilled(filtro?.neighborhood, filtro?.bairro);
@@ -309,11 +333,11 @@ const applyFilters = (
 
   if (!options?.ignoreCategory && category) {
     if (category === "moto") {
-      query = query.or("category.eq.moto,category.eq.motocicleta");
+      query = query.or("category.ilike.moto,category.ilike.motocicleta");
     } else if (category === "carro") {
-      query = query.or("category.eq.carro,category.eq.automovel,category.eq.automóvel");
+      query = query.or("category.ilike.carro,category.ilike.automovel,category.ilike.automóvel");
     } else if (category === "outros") {
-      // não restringe categoria para quadriciclo/atv
+      // Não restringe categoria para quadriciclo/ATV/outros.
     } else {
       query = query.ilike("category", `%${category}%`);
     }
@@ -340,7 +364,11 @@ const applyFilters = (
   if (promoPriceMin) query = query.gte("promo_price", Number(promoPriceMin));
   if (promoPriceMax) query = query.lte("promo_price", Number(promoPriceMax));
 
-  if (plateFinal !== null && plateFinal !== undefined && String(plateFinal).trim() !== "") {
+  if (
+    plateFinal !== null &&
+    plateFinal !== undefined &&
+    String(plateFinal).trim() !== ""
+  ) {
     query = query.eq("plate_final", String(plateFinal).trim());
   }
 
@@ -364,7 +392,9 @@ const uniqueByExternalId = (items: any[]) => {
 const sortVehiclesLocally = (items: any[], filtro: any) => {
   const sortBy = filtro?.sort_by;
   const sortOrder =
-    String(filtro?.sort_order || "asc").toLowerCase() === "desc" ? "desc" : "asc";
+    String(filtro?.sort_order || "asc").toLowerCase() === "desc"
+      ? "desc"
+      : "asc";
 
   if (!sortBy) return items;
 
@@ -372,7 +402,13 @@ const sortVehiclesLocally = (items: any[], filtro: any) => {
     let av = a?.[sortBy];
     let bv = b?.[sortBy];
 
-    const numericFields = ["price", "promo_price", "year", "fabric_year", "mileage"];
+    const numericFields = [
+      "price",
+      "promo_price",
+      "year",
+      "fabric_year",
+      "mileage",
+    ];
 
     if (numericFields.includes(sortBy)) {
       av = Number(av || 0);
@@ -389,7 +425,7 @@ const sortVehiclesLocally = (items: any[], filtro: any) => {
 };
 
 const localFallbackSearch = async (filtro: any) => {
-  let query = supabase.from("vehicles_clean").select("*");
+  let query = (supabase as any).from(ESTOQUE_TABLE).select("*");
 
   query = applyFilters(query, filtro, {
     ignoreVehicleTextFilters: true,
@@ -468,7 +504,7 @@ export const carregarEstoqueSupabase = async (
     const searchTokens = tokens.filter((t) => /[a-z]/i.test(t));
     let raw: any[] = [];
 
-    let query = supabase.from("vehicles_clean").select("*");
+    let query = (supabase as any).from(ESTOQUE_TABLE).select("*");
     query = applyFilters(query, filtro);
 
     const sortBy = filtro?.sort_by;
@@ -593,7 +629,7 @@ export const enviarParaN8N = async (
   setIsLoading(true);
 
   try {
-    const data = await enviarMensagemN8N(textoUsuario, "sessao-marcos");
+    const data = await enviarMensagemN8N(textoUsuario, "sessao-joinha-showroom");
 
     const textoResposta =
       data?.texto ||

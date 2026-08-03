@@ -51,25 +51,23 @@ Deno.serve(async (req) => {
     } = await adminClient.auth.getUser(token);
 
     if (loggedUserError || !loggedUser) {
-      return new Response(
-        JSON.stringify({ error: "Usuário não autenticado." }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return new Response(JSON.stringify({ error: "Usuário não autenticado." }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const { data: adminProfile, error: adminProfileError } = await adminClient
-      .from("profiles")
+      .from("profiles_joinha")
       .select("role")
       .eq("id", loggedUser.id)
       .single();
 
-    if (adminProfileError) {
+    if (adminProfileError || !adminProfile) {
       return new Response(
         JSON.stringify({
           error: "Não foi possível validar o perfil do administrador.",
+          detail: adminProfileError?.message || null,
         }),
         {
           status: 403,
@@ -79,7 +77,7 @@ Deno.serve(async (req) => {
     }
 
     const allowedRoles = ["lojista", "gerente", "admin", "adm", "administrador"];
-    const role = String(adminProfile?.role || "").trim().toLowerCase();
+    const role = String(adminProfile.role || "").trim().toLowerCase();
 
     if (!allowedRoles.includes(role)) {
       return new Response(JSON.stringify({ error: "Acesso negado." }), {
@@ -94,7 +92,9 @@ Deno.serve(async (req) => {
     const telefone = String(body?.telefone || "").trim();
     const email = String(body?.email || "").trim().toLowerCase();
     const senhaTemporaria = String(body?.senhaTemporaria || "").trim();
-    const ativo = body?.ativo === true;
+    const ativo =
+      body?.ativo === true ||
+      String(body?.ativo || "").trim().toLowerCase() === "ativo";
 
     if (!nome || nome.length < 3) {
       return new Response(JSON.stringify({ error: "Nome inválido." }), {
@@ -122,65 +122,58 @@ Deno.serve(async (req) => {
       );
     }
 
-    let createdAuthUserId: string | null = null;
-    let createdVendedorId: number | null = null;
+    const { data: createdAuthData, error: createAuthError } =
+      await adminClient.auth.admin.createUser({
+        email,
+        password: senhaTemporaria,
+        email_confirm: true,
+        user_metadata: { nome },
+      });
 
-    try {
-      const { data: createdAuthData, error: createAuthError } =
-        await adminClient.auth.admin.createUser({
-          email,
-          password: senhaTemporaria,
-          email_confirm: true,
-          user_metadata: {
-            nome,
-          },
-        });
+    if (createAuthError || !createdAuthData.user) {
+      return new Response(
+        JSON.stringify({
+          error:
+            createAuthError?.message ||
+            "Não foi possível criar o usuário de autenticação.",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
-      if (createAuthError || !createdAuthData.user) {
-        throw new Error(
-          createAuthError?.message ||
-            "Não foi possível criar o usuário de autenticação."
-        );
-      }
+    const createdAuthUserId = createdAuthData.user.id;
 
-      createdAuthUserId = createdAuthData.user.id;
+    const { data: vendedorData, error: vendedorError } = await adminClient
+      .from("vendedores_joinha")
+      .insert({
+        nome,
+        telefone,
+        ativo,
+      })
+      .select("id")
+      .single();
 
-      const { data: lastVendedor, error: lastVendedorError } = await adminClient
-        .from("Vendedores")
-        .select("ordem")
-        .order("ordem", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    if (vendedorError || !vendedorData) {
+      await adminClient.auth.admin.deleteUser(createdAuthUserId);
+      return new Response(
+        JSON.stringify({
+          error: vendedorError?.message || "Não foi possível criar o vendedor.",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
-      if (lastVendedorError) {
-        throw new Error(
-          lastVendedorError.message ||
-            "Não foi possível calcular a ordem do vendedor."
-        );
-      }
+    const createdVendedorId = vendedorData.id;
 
-      const ordem = Number(lastVendedor?.ordem || 0) + 1;
-
-      const { data: vendedorData, error: vendedorError } = await adminClient
-        .from("Vendedores")
-        .insert({
-          nome,
-          telefone,
-          ativo,
-          ordem,
-        })
-        .select("id")
-        .single();
-
-      if (vendedorError || !vendedorData) {
-        throw new Error(
-          vendedorError?.message || "Não foi possível criar o vendedor."
-        );
-      }
-
-      createdVendedorId = vendedorData.id;
-
-      const { error: profileError } = await adminClient.from("profiles").insert({
+    const { error: profileError } = await adminClient
+      .from("profiles_joinha")
+      .insert({
         id: createdAuthUserId,
         role: "vendedor",
         vendedor_id: createdVendedorId,
@@ -189,60 +182,40 @@ Deno.serve(async (req) => {
         precisa_trocar_senha: true,
       });
 
-      if (profileError) {
-        throw new Error(
-          profileError.message ||
-            "Não foi possível criar o profile do vendedor."
-        );
-      }
+    if (profileError) {
+      await adminClient.from("vendedores_joinha").delete().eq("id", createdVendedorId);
+      await adminClient.auth.admin.deleteUser(createdAuthUserId);
 
       return new Response(
         JSON.stringify({
-          success: true,
-          user_id: createdAuthUserId,
-          vendedor_id: createdVendedorId,
-          nome,
-          email,
-          ativo,
-          ordem,
+          error: profileError.message || "Não foi possível criar o profile do vendedor.",
         }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    } catch (internalError) {
-      const message =
-        internalError instanceof Error
-          ? internalError.message
-          : "Erro interno ao cadastrar vendedor.";
-
-      if (createdVendedorId) {
-        await adminClient.from("Vendedores").delete().eq("id", createdVendedorId);
-      }
-
-      if (createdAuthUserId) {
-        await adminClient.auth.admin.deleteUser(createdAuthUserId);
-      }
-
-      return new Response(
-        JSON.stringify({ error: message }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Erro inesperado.";
 
     return new Response(
-      JSON.stringify({ error: message }),
+      JSON.stringify({
+        success: true,
+        user_id: createdAuthUserId,
+        vendedor_id: createdVendedorId,
+        nome,
+        email,
+        ativo,
+      }),
       {
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro inesperado.";
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

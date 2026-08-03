@@ -270,11 +270,11 @@ const App = () => (
           <Route
             path="/estoque"
             element={
-              <RequireLojista>
+              <RequireAuth>
                 <StaffShell>
                   <Inventory />
                 </StaffShell>
-              </RequireLojista>
+              </RequireAuth>
             }
           />
 

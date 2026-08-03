@@ -5,8 +5,12 @@ import { parseMoney, formatarPreco } from "@/features/showroom/utils/formatters"
 import { calcularResultadosSimulacaoCredito } from "@/features/showroom/utils/creditSimulation";
 import { showSuccess, showError } from "@/utils/toast";
 
+const LEADS_TABLE = "leads_credito_joinha";
+const SIMULACOES_TABLE = "simulacoes_credito_joinha";
+
 const notificarLeadNoN8N = async (payload: any) => {
-  const webhookUrl = "https://semidefensively-hymnological-elvia.ngrok-free.dev/webhook/lead-notificacao";
+  const webhookUrl =
+    "https://semidefensively-hymnological-elvia.ngrok-free.dev/webhook/lead-notificacao";
 
   if (!webhookUrl) {
     throw new Error(
@@ -25,7 +29,9 @@ const notificarLeadNoN8N = async (payload: any) => {
   if (!response.ok) {
     const textoErro = await response.text().catch(() => "");
     throw new Error(
-      `Falha ao notificar lead no n8n (${response.status})${textoErro ? `: ${textoErro}` : ""}`
+      `Falha ao notificar lead no n8n (${response.status})${
+        textoErro ? `: ${textoErro}` : ""
+      }`
     );
   }
 
@@ -150,8 +156,10 @@ export const executarAnaliseCredito = async (
 
       // Verificação de duplicidade no Supabase
       try {
-        const { data: existingLeads, error: leadError } = await supabase
-          .from("Leads_Credito")
+        const { data: existingLeads, error: leadError } = await (
+          supabase as any
+        )
+          .from(LEADS_TABLE)
           .select("id")
           .eq("cpf", simulationData.cpf)
           .eq("veiculo_interesse", carroSimulado)
@@ -169,8 +177,10 @@ export const executarAnaliseCredito = async (
       }
 
       // Salvar simulação de crédito
-      const { data: simulacoesExistentes, error: erroBusca } = await supabase
-        .from("simulacoes_credito")
+      const { data: simulacoesExistentes, error: erroBusca } = await (
+        supabase as any
+      )
+        .from(SIMULACOES_TABLE)
         .select("id")
         .eq("cpf", simulationData.cpf)
         .eq("carro", carroSimulado)
@@ -185,8 +195,8 @@ export const executarAnaliseCredito = async (
       const simulacaoExistente = simulacoesExistentes?.[0];
 
       if (simulacaoExistente?.id) {
-        const { error: erroAtualizacao } = await supabase
-          .from("simulacoes_credito")
+        const { error: erroAtualizacao } = await (supabase as any)
+          .from(SIMULACOES_TABLE)
           .update(dadosSimulacao)
           .eq("id", simulacaoExistente.id);
 
@@ -197,8 +207,8 @@ export const executarAnaliseCredito = async (
           );
         }
       } else {
-        const { error: erroInsercao } = await supabase
-          .from("simulacoes_credito")
+        const { error: erroInsercao } = await (supabase as any)
+          .from(SIMULACOES_TABLE)
           .insert([dadosSimulacao]);
 
         if (erroInsercao) {
@@ -242,7 +252,9 @@ export const confirmarEnvioLead = async (
 
     const veiculoInteresse = `${selectedCar?.marca} ${selectedCar?.modelo}`;
     const agora = new Date();
-    const dezMinAtras = new Date(agora.getTime() - 10 * 60 * 1000).toISOString();
+    const dezMinAtras = new Date(
+      agora.getTime() - 10 * 60 * 1000
+    ).toISOString();
 
     // 1) Rodízio
     const { data, error } = await supabase.rpc("proximo_vendedor_rodizio");
@@ -273,8 +285,10 @@ export const confirmarEnvioLead = async (
     }
 
     // 2) Verificar se já existe lead recente igual
-    const { data: leadsExistentes, error: erroBuscaLead } = await supabase
-      .from("Leads_Credito")
+    const { data: leadsExistentes, error: erroBuscaLead } = await (
+      supabase as any
+    )
+      .from(LEADS_TABLE)
       .select("id, notificado_status, created_at")
       .eq("cpf", simulationData.cpf)
       .eq("veiculo_interesse", veiculoInteresse)
@@ -292,8 +306,8 @@ export const confirmarEnvioLead = async (
       leadId = leadsExistentes[0].id;
     } else {
       // 3) Inserir lead só se não existir um recente igual
-      const { data: leadCriado, error: insertError } = await supabase
-        .from("Leads_Credito")
+      const { data: leadCriado, error: insertError } = await (supabase as any)
+        .from(LEADS_TABLE)
         .insert([
           {
             nome: simulationData.nome,
@@ -305,7 +319,8 @@ export const confirmarEnvioLead = async (
             valor_veiculo: Number(selectedCar?.preco || 0),
             entrada: parseMoney(simulationData.entrada),
             saldo_financiado:
-              Number(selectedCar?.preco || 0) - parseMoney(simulationData.entrada),
+              Number(selectedCar?.preco || 0) -
+              parseMoney(simulationData.entrada),
             parcela_12x: p12,
             parcela_24x: p24,
             parcela_36x: p36,
@@ -349,8 +364,8 @@ export const confirmarEnvioLead = async (
         status: "Novo",
       });
 
-      const { error: updateOkError } = await supabase
-        .from("Leads_Credito")
+      const { error: updateOkError } = await (supabase as any)
+        .from(LEADS_TABLE)
         .update({
           notificado_status: "SIM",
           notificado_em: new Date().toISOString(),
@@ -366,8 +381,8 @@ export const confirmarEnvioLead = async (
     } catch (notifError: any) {
       console.error("Erro ao notificar vendedor:", notifError);
 
-      await supabase
-        .from("Leads_Credito")
+      await (supabase as any)
+        .from(LEADS_TABLE)
         .update({
           notificado_status: "ERRO",
         })

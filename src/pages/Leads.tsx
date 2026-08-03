@@ -72,6 +72,8 @@ interface Lead {
   analise?: any;
 }
 
+const LEADS_TABLE = "leads_credito_joinha";
+
 const Leads = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,9 +82,13 @@ const Leads = () => {
   );
 
   const role = localStorage.getItem("auth_role") || "lojista";
-  const isAdminView = ["lojista", "gerente", "admin", "adm", "administrador"].includes(
-    String(role).trim().toLowerCase()
-  );
+  const isAdminView = [
+    "lojista",
+    "gerente",
+    "admin",
+    "adm",
+    "administrador",
+  ].includes(String(role).trim().toLowerCase());
 
   useEffect(() => {
     const style = document.createElement("style");
@@ -127,7 +133,7 @@ const Leads = () => {
       lead.lojista ||
       lead.empresa ||
       lead.store_name ||
-      "Styllo Motors"
+      "Joinha Veículos"
     );
   };
 
@@ -169,7 +175,7 @@ const Leads = () => {
     const msg = encodeURIComponent(
       `Olá, ${nome}. Recebi sua simulação para o veículo ${
         veiculo || "de seu interesse"
-      } aqui na Styllo Motors. Posso te ligar agora para explicar as próximas etapas e dar andamento no seu atendimento?`
+      } aqui na Joinha Veículos. Posso te ligar agora para explicar as próximas etapas e dar andamento no seu atendimento?`
     );
 
     return `https://wa.me/${ddi}${limpo}?text=${msg}`;
@@ -231,10 +237,14 @@ const Leads = () => {
 
   const fetchLeads = async () => {
     try {
+      setLoading(true);
+
       const currentRole = localStorage.getItem("auth_role") || "lojista";
       const currentVendedorId = localStorage.getItem("vendedor_id");
 
-      let query = supabase.from("Leads_Credito").select("*", { count: "exact", head: false });
+      let query = (supabase as any)
+        .from(LEADS_TABLE)
+        .select("*", { count: "exact", head: false });
 
       if (String(currentRole).trim().toLowerCase() === "vendedor") {
         if (!currentVendedorId) {
@@ -249,7 +259,7 @@ const Leads = () => {
 
       if (error) throw error;
 
-      const sortedLeads = (data || []).sort((a, b) => {
+      const sortedLeads = (data || []).sort((a: Lead, b: Lead) => {
         const aNotificado =
           a.notificado_status === true ||
           a.notificado_status === "true" ||
@@ -282,13 +292,13 @@ const Leads = () => {
     fetchLeads();
 
     const channel = supabase
-      .channel("realtime-leads-seller")
+      .channel("realtime-leads-joinha")
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
-          table: "Leads_Credito",
+          table: LEADS_TABLE,
         },
         () => {
           fetchLeads();
@@ -299,6 +309,7 @@ const Leads = () => {
     return () => {
       supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {
@@ -318,7 +329,7 @@ const Leads = () => {
 
   const title = isAdminView ? "Central de Leads" : "Meus Leads";
   const subtitle = isAdminView
-    ? "Visualize todos os contatos e acompanhe o funil completo."
+    ? "Visualize todos os contatos da Joinha e acompanhe o funil completo."
     : "Visualize apenas os leads vinculados ao seu atendimento.";
 
   const renderAnaliseCard = (
@@ -363,10 +374,10 @@ const Leads = () => {
               (parcela === "12x"
                 ? lead.parcela_12x
                 : parcela === "24x"
-                  ? lead.parcela_24x
-                  : parcela === "36x"
-                    ? lead.parcela_36x
-                    : lead.parcela_48x)
+                ? lead.parcela_24x
+                : parcela === "36x"
+                ? lead.parcela_36x
+                : lead.parcela_48x)
           )}
         </div>
 
