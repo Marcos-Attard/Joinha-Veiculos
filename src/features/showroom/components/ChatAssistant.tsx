@@ -46,8 +46,8 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({
 
         <img
           src={logoSrc}
-          alt="Styllo Motors"
-          style={{ width: "100px", height: "auto" }}
+          alt="Joinha Veiculos"
+          style={{ width: "140px", height: "auto" }}
         />
 
         <div className="w-[92px]" aria-hidden="true" />

@@ -19,7 +19,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           src={logoSrc}
           alt="Joinha Veiculos"
           style={{
-            width: "280px",
+            width: "340px",
             height: "auto",
             display: "block",
             objectFit: "contain",
