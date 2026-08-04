@@ -12,7 +12,7 @@ import {
   Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import JoinhaLogo from "@/assets/Styllo-Logo.png";
+import JoinhaLogo from "@/assets/Logo-Joinha.png";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -33,8 +33,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     "administrador",
   ].includes(role);
 
-  const logoSrc =
-    typeof JoinhaLogo === "string" ? JoinhaLogo : JoinhaLogo?.src || "";
+  const logoSrc = JoinhaLogo;
 
   const menuItems =
     role === "vendedor"
@@ -71,11 +70,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <X size={28} />
         </button>
 
-        <div className="flex justify-center py-10 px-6">
+        <div className="flex justify-center py-6 px-6">
           <img
             src={logoSrc}
             alt="Joinha Veículos"
-            className="w-[190px] h-auto object-contain bg-white"
+            className="w-[140px] h-auto object-contain"
           />
         </div>
 

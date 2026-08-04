@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import StylloLogo from '@/assets/Styllo-Logo.png';
+import JoinhaLogo from '@/assets/Logo-Joinha.png';
 import { Send, X, Loader2, Calendar, Gauge, Zap, Fuel, Hash,
 DoorOpen, TextQuote, Info, User, Mail, Phone, CreditCard,
 Wallet, ArrowRight } from 'lucide-react';
@@ -382,7 +382,7 @@ const Showroom = () => {
 
   const startAgente = () => {
     setIsChatActive(true);
-    setMessages([{ id: '1', text: "Olá! Sou o Jarvis, assistente virtual da Styllo Motors. Poderia me informar seu nome?", sender: 'ai' }]);
+    setMessages([{ id: '1', text: "Olá! Sou o Jarvis, assistente virtual da Joinha Veiculos. Poderia me informar seu nome?", sender: 'ai' }]);
   };
 
   const handleSendMessage = (e?: React.FormEvent) => {

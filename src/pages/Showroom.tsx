@@ -21,7 +21,7 @@ import FinancingSimulation from "@/features/showroom/components/FinancingSimulat
 import CreditResults from "@/features/showroom/components/CreditResults";
 import ChatAssistant from "@/features/showroom/components/ChatAssistant";
 import WelcomeScreen from "@/features/showroom/components/WelcomeScreen";
-import JoinhaLogo from "@/assets/Styllo-Logo.png";
+import JoinhaLogo from "@/assets/Logo-Joinha.png";
 
 const initialSimulationData = {
   nome: "",
@@ -65,8 +65,7 @@ const Showroom = () => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const logoSrc =
-    typeof JoinhaLogo === "string" ? JoinhaLogo : JoinhaLogo?.src || "";
+  const logoSrc = JoinhaLogo;
 
   useEffect(() => {
     if (scrollRef.current) {
