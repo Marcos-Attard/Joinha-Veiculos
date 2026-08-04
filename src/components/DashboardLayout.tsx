@@ -70,7 +70,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <X size={28} />
         </button>
 
-        <div className="flex justify-center py-4 px-2">
+        <div className="flex justify-center pt-2 pb-0 px-2 -mb-2">
           <img
             src={logoSrc}
             alt="Joinha Veículos"
