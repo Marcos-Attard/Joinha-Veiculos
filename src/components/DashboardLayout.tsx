@@ -70,7 +70,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <X size={28} />
         </button>
 
-        <div className="flex justify-center py-6 px-2">
+        <div className="flex justify-center py-4 px-2">
           <img
             src={logoSrc}
             alt="Joinha Veículos"
@@ -78,7 +78,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           />
         </div>
 
-        <nav className="flex-1 px-4 space-y-2">
+        <nav className="flex-1 px-4 space-y-1">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
 
