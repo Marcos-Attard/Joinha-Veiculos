@@ -13,8 +13,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   startAgente,
 }) => {
   return (
-    <div className="flex flex-col items-center justify-between h-full w-full py-10">
-      <div className="w-full flex justify-center">
+    <div className="flex flex-col items-center justify-between h-full w-full py-4">
+      <div className="w-full flex justify-center -mb-8">
         <img
           src={logoSrc}
           alt="Joinha Veiculos"
