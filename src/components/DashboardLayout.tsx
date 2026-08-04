@@ -74,7 +74,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <img
             src={logoSrc}
             alt="Joinha Veículos"
-            className="w-[180px] h-auto object-contain"
+            className="w-[210px] h-auto object-contain"
           />
         </div>
 

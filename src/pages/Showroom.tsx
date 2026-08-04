@@ -243,7 +243,7 @@ const Showroom = () => {
   );
 
   return (
-    <div className="flex flex-col items-center justify-between h-screen w-full bg-black py-10 px-4 overflow-hidden text-white font-sans">
+    <div className="flex flex-col items-center justify-between min-h-screen w-full bg-black py-10 px-4 overflow-y-auto text-white font-sans">
       {!isChatActive ? (
         <WelcomeScreen logoSrc={logoSrc} startAgente={startAgente} />
       ) : (
