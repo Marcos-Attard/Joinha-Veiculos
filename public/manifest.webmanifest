@@ -1,14 +1,14 @@
 {
-  "name": "Styllo Motors Loja",
-  "short_name": "Styllo Motors",
+  "name": "Joinha Veículos",
+  "short_name": "Joinha",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#081521",
+  "theme_color": "#081521",
   "icons": [
     {
-      "src": "/styllo-motors-icon.png",
+      "src": "/joinha-loja-icon.png",
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "any maskable"

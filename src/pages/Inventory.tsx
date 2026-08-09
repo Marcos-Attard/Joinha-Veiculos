@@ -19,6 +19,8 @@ import {
   CheckCircle2,
   CircleX,
   Upload,
+  Star,
+  Trash2,
 } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
 import { cn } from "@/lib/utils";
@@ -96,6 +98,11 @@ type FormState = {
   version: string;
 };
 
+type VehicleImageItem = {
+  url: string;
+  path: string | null;
+};
+
 const emptyForm = (): FormState => ({
   external_id: "",
   category: "",
@@ -152,9 +159,53 @@ const parseImagesText = (value: string) => {
     .filter(Boolean);
 };
 
-const getVehicleImage = (vehicle: Vehicle) => {
-  const img = vehicle?.images_large?.[0];
-  return img || "https://placehold.co/800x450?text=Sem+Foto";
+const colorToHex = (color: string) => {
+  const map: Record<string, string> = {
+    azul: "1d4ed8",
+    branco: "f8fafc",
+    preto: "111827",
+    prata: "cbd5e1",
+    vermelho: "dc2626",
+    vermelha: "dc2626",
+    verde: "16a34a",
+    cinza: "6b7280",
+    "cinza escuro": "374151",
+    bege: "d6b98c",
+    marrom: "92400e",
+    amarelo: "eab308",
+  };
+
+  return map[normalizeText(color)] || "525252";
+};
+
+const getVehicleImages = (vehicle: Vehicle) => {
+  const existing = Array.isArray(vehicle.images_large)
+    ? vehicle.images_large.filter(Boolean)
+    : [];
+
+  const label =
+    `${vehicle.make || ""} ${vehicle.model || ""}`.trim() ||
+    vehicle.title_clean ||
+    "VEÍCULO";
+
+  const text = encodeURIComponent(label.toUpperCase());
+  const bg = colorToHex(vehicle.color || "");
+
+  const placeholders = [
+    "FRONTAL",
+    "LATERAL",
+    "TRASEIRA",
+    "INTERIOR",
+    "DETALHE 1",
+    "DETALHE 2",
+  ].map(
+    (view) =>
+      `https://placehold.co/800x450/${bg}/ffffff?text=${text}%20${encodeURIComponent(
+        view
+      )}`
+  );
+
+  return [...existing, ...placeholders].slice(0, 6);
 };
 
 const uniqueSorted = (items: string[]) =>
@@ -168,6 +219,7 @@ const withCurrent = (current: string, list: string[]) =>
 const Inventory = () => {
   const navigate = useNavigate();
   const formRef = useRef<HTMLDivElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   const role = (localStorage.getItem("auth_role") || "").trim().toLowerCase();
   const isAuthenticated = localStorage.getItem("is_authenticated") === "true";
@@ -175,6 +227,8 @@ const Inventory = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [filtrosAplicados, setFiltrosAplicados] = useState(false);
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
@@ -205,6 +259,10 @@ const Inventory = () => {
   const [statusBusca, setStatusBusca] = useState<"all" | "active" | "inactive">(
     "all"
   );
+
+  const [vehicleImages, setVehicleImages] = useState<VehicleImageItem[]>([]);
+  const [previewImageIndex, setPreviewImageIndex] = useState(0);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   const [form, setForm] = useState<FormState>(emptyForm());
 
@@ -252,92 +310,34 @@ const Inventory = () => {
     return `joinha-${String(proximo).padStart(4, "0")}`;
   };
 
-  const carregarVehicles = async () => {
-    try {
-      setLoading(true);
-
-      const { data, error } = await supabase
-        .from("vehicles_joinha")
-        .select("*")
-        .order("available", { ascending: false })
-        .order("make", { ascending: true })
-        .order("model", { ascending: true })
-        .order("year", { ascending: false });
-
-      if (error) throw error;
-
-      const list = (data || []) as Vehicle[];
-      setVehicles(list);
-      setFilteredVehicles(list);
-    } catch (error: any) {
-      console.error("Erro ao carregar estoque:", error);
-      showError(error?.message || "Não foi possível carregar o estoque.");
-    } finally {
-      setLoading(false);
-    }
+  const syncImagesToForm = (images: VehicleImageItem[]) => {
+    const limited = images.slice(0, 10);
+    setVehicleImages(limited);
+    setPreviewImageIndex(0);
+    setForm((prev) => ({
+      ...prev,
+      images_large_text: limited.map((item) => item.url).join("\n"),
+    }));
   };
 
-  const carregarCatalogo = async () => {
-    try {
-      const { data, error } = await (supabase as any)
-        .from("vehicles_joinha_catalog")
-        .select("*")
-        .eq("active", true)
-        .order("catalog_type", { ascending: true })
-        .order("category", { ascending: true })
-        .order("make", { ascending: true })
-        .order("model", { ascending: true })
-        .order("base_model", { ascending: true });
+  const extractStoragePathFromUrl = (url: string) => {
+    const bucket = "Vehicles-Joinha";
+    const marker = `/storage/v1/object/public/${bucket}/`;
 
-      if (error) throw error;
+    const index = url.indexOf(marker);
+    if (index === -1) return null;
 
-      setCatalogItems((data || []) as CatalogItem[]);
-    } catch (error: any) {
-      console.error("Erro ao carregar catálogo:", error);
-      showError(error?.message || "Não foi possível carregar o catálogo.");
-    }
+    return decodeURIComponent(
+      url
+        .slice(index + marker.length)
+        .split("?")[0]
+        .split("#")[0]
+        .trim()
+    );
   };
 
-  useEffect(() => {
-    if (canAccess) {
-      carregarVehicles();
-      carregarCatalogo();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canAccess]);
-
-  const categorias = useMemo(
-    () =>
-      uniqueSorted(
-        catalogItems
-          .filter((item) => item.catalog_type === "category")
-          .map((item) => item.category || "")
-      ),
-    [catalogItems]
-  );
-
-  const marcas = useMemo(
-    () =>
-      uniqueSorted(
-        catalogItems
-          .filter((item) => item.catalog_type === "make")
-          .map((item) => item.make || "")
-      ),
-    [catalogItems]
-  );
-
-  const modelos = useMemo(
-    () =>
-      uniqueSorted(
-        catalogItems
-          .filter((item) => item.catalog_type === "model")
-          .map((item) => item.model || "")
-      ),
-    [catalogItems]
-  );
-
-  const vehiclesDoCatalogoAtivo = useMemo(() => {
-    return vehicles.filter((vehicle) => {
+  const getVehiclesCatalogoAtivo = (listaBase: Vehicle[]) => {
+    return listaBase.filter((vehicle) => {
       const category = normalizeText(vehicle.category || "");
       const make = normalizeText(vehicle.make || "");
       const model = normalizeText(vehicle.model || "");
@@ -383,6 +383,137 @@ const Inventory = () => {
 
       return true;
     });
+  };
+
+  const filtrarVeiculos = (listaBase: Vehicle[]) => {
+    const listaCatalogoAtivo = getVehiclesCatalogoAtivo(listaBase);
+    const placaNorm = normalizePlate(placaBusca);
+
+    let lista = [...listaCatalogoAtivo];
+
+    if (placaNorm) {
+      lista = lista.filter((item) =>
+        normalizePlate(String(item.plate || "")).includes(placaNorm)
+      );
+    } else {
+      if (marcaBusca) {
+        lista = lista.filter(
+          (item) => normalizeText(item.make) === normalizeText(marcaBusca)
+        );
+      }
+
+      if (modeloBusca) {
+        lista = lista.filter(
+          (item) => normalizeText(item.model) === normalizeText(modeloBusca)
+        );
+      }
+    }
+
+    if (statusBusca === "active") {
+      lista = lista.filter((item) => item.available !== false);
+    }
+
+    if (statusBusca === "inactive") {
+      lista = lista.filter((item) => item.available === false);
+    }
+
+    return lista;
+  };
+
+  const carregarVehicles = async () => {
+    try {
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from("vehicles_joinha")
+        .select("*")
+        .order("available", { ascending: false })
+        .order("make", { ascending: true })
+        .order("model", { ascending: true })
+        .order("year", { ascending: false });
+
+      if (error) throw error;
+
+      const list = (data || []) as Vehicle[];
+      setVehicles(list);
+      setFilteredVehicles(filtrosAplicados ? filtrarVeiculos(list) : list);
+    } catch (error: any) {
+      console.error("Erro ao carregar estoque:", error);
+      showError(error?.message || "Não foi possível carregar o estoque.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const carregarCatalogo = async () => {
+    try {
+      const { data, error } = await (supabase as any)
+        .from("vehicles_joinha_catalog")
+        .select("*")
+        .eq("active", true)
+        .order("catalog_type", { ascending: true })
+        .order("category", { ascending: true })
+        .order("make", { ascending: true })
+        .order("model", { ascending: true })
+        .order("base_model", { ascending: true });
+
+      if (error) throw error;
+
+      setCatalogItems((data || []) as CatalogItem[]);
+    } catch (error: any) {
+      console.error("Erro ao carregar catálogo:", error);
+      showError(error?.message || "Não foi possível carregar o catálogo.");
+    }
+  };
+
+  useEffect(() => {
+    if (canAccess) {
+      carregarVehicles();
+      carregarCatalogo();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canAccess]);
+
+  useEffect(() => {
+    if (filtrosAplicados) {
+      setFilteredVehicles(filtrarVeiculos(vehicles));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicles, catalogItems]);
+
+  const categorias = useMemo(
+    () =>
+      uniqueSorted(
+        catalogItems
+          .filter((item) => item.catalog_type === "category")
+          .map((item) => item.category || "")
+      ),
+    [catalogItems]
+  );
+
+  const marcas = useMemo(
+    () =>
+      uniqueSorted(
+        catalogItems
+          .filter((item) => item.catalog_type === "make")
+          .map((item) => item.make || "")
+      ),
+    [catalogItems]
+  );
+
+  const modelos = useMemo(
+    () =>
+      uniqueSorted(
+        catalogItems
+          .filter((item) => item.catalog_type === "model")
+          .map((item) => item.model || "")
+      ),
+    [catalogItems]
+  );
+
+  const vehiclesDoCatalogoAtivo = useMemo(() => {
+    return getVehiclesCatalogoAtivo(vehicles);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicles, catalogItems]);
 
   const totalVeiculos = useMemo(
@@ -483,55 +614,23 @@ const Inventory = () => {
   }, [marcaBusca, modeloBusca, modelosDaMarcaFiltro]);
 
   const aplicarFiltros = () => {
-    const placaNorm = normalizePlate(placaBusca);
-
-    let lista = [...vehiclesDoCatalogoAtivo];
-
-    if (placaNorm) {
-      lista = lista.filter((item) =>
-        normalizePlate(String(item.plate || "")).includes(placaNorm)
-      );
-    } else {
-      if (marcaBusca) {
-        lista = lista.filter(
-          (item) => normalizeText(item.make) === normalizeText(marcaBusca)
-        );
-      }
-
-      if (modeloBusca) {
-        lista = lista.filter(
-          (item) => normalizeText(item.model) === normalizeText(modeloBusca)
-        );
-      }
-    }
-
-    if (statusBusca === "active") {
-      lista = lista.filter((item) => item.available !== false);
-    }
-
-    if (statusBusca === "inactive") {
-      lista = lista.filter((item) => item.available === false);
-    }
-
-    setFilteredVehicles(lista);
+    setFiltrosAplicados(true);
+    setFilteredVehicles(filtrarVeiculos(vehicles));
   };
-
-  useEffect(() => {
-    aplicarFiltros();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    vehiclesDoCatalogoAtivo,
-    placaBusca,
-    marcaBusca,
-    modeloBusca,
-    statusBusca,
-  ]);
 
   const limparFiltros = () => {
     setPlacaBusca("");
     setMarcaBusca("");
     setModeloBusca("");
     setStatusBusca("all");
+    setFiltrosAplicados(false);
+    setFilteredVehicles(vehiclesDoCatalogoAtivo);
+  };
+
+  const resetImageState = () => {
+    setVehicleImages([]);
+    setPreviewImageIndex(0);
+    setUploadingImages(false);
   };
 
   const abrirCadastro = () => {
@@ -553,6 +652,7 @@ const Inventory = () => {
       available: true,
     });
 
+    resetImageState();
     setCadastroAberto(true);
     scrollToForm();
   };
@@ -563,6 +663,13 @@ const Inventory = () => {
     const categoryExists = categorias.some(
       (item) => normalizeText(item) === normalizeText(vehicle.category)
     );
+
+    const existingImages = (vehicle.images_large || [])
+      .filter(Boolean)
+      .map((url) => ({
+        url,
+        path: null,
+      }));
 
     setEditingVehicle(vehicle);
     setForm({
@@ -592,12 +699,14 @@ const Inventory = () => {
           : String(vehicle.promo_price),
       plate: vehicle.plate || "",
       plate_final: vehicle.plate_final || "",
-      images_large_text: (vehicle.images_large || []).join("\n"),
+      images_large_text: existingImages.map((item) => item.url).join("\n"),
       available: vehicle.available !== false,
       description_clean: vehicle.description_clean || "",
       options_clean: vehicle.options_clean || "",
       version: vehicle.version || "",
     });
+    setVehicleImages(existingImages);
+    setPreviewImageIndex(0);
     setCadastroAberto(true);
     scrollToForm();
   };
@@ -606,6 +715,7 @@ const Inventory = () => {
     if (saving || catalogSaving) return;
     setCadastroAberto(false);
     setEditingVehicle(null);
+    resetImageState();
   };
 
   const atualizarCampo = (campo: keyof FormState, value: string | boolean) => {
@@ -943,6 +1053,164 @@ const Inventory = () => {
     }
   };
 
+  const handleSelectImages = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    if (!canEditInventory) return;
+
+    const files = Array.from(event.target.files || []).filter((file) =>
+      file.type.startsWith("image/")
+    );
+
+    event.target.value = "";
+
+    if (files.length === 0) return;
+
+    const remainingSlots = 10 - vehicleImages.length;
+
+    if (remainingSlots <= 0) {
+      showError("Limite de 10 fotos por veículo atingido.");
+      return;
+    }
+
+    const filesToUpload = files.slice(0, remainingSlots);
+
+    if (files.length > remainingSlots) {
+      showError("Você pode enviar no máximo 10 fotos por veículo.");
+    }
+
+    try {
+      setUploadingImages(true);
+
+      const uploadedItems: VehicleImageItem[] = [];
+
+      for (let index = 0; index < filesToUpload.length; index += 1) {
+        const file = filesToUpload[index];
+        const ext =
+          file.name.split(".").pop()?.toLowerCase() ||
+          file.type.split("/").pop()?.toLowerCase() ||
+          "jpg";
+
+        const safeExternalId = (form.external_id || "sem-id")
+          .trim()
+          .replace(/[^a-zA-Z0-9-_]/g, "-");
+
+        const safeName = file.name
+          .replace(/\.[^/.]+$/, "")
+          .replace(/[^a-zA-Z0-9-_]/g, "-")
+          .toLowerCase();
+
+        const filePath = `${safeExternalId}/${Date.now()}-${index}-${safeName}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("Vehicles-Joinha")
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: file.type,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("Vehicles-Joinha").getPublicUrl(filePath);
+
+        uploadedItems.push({
+          url: publicUrl,
+          path: filePath,
+        });
+      }
+
+      syncImagesToForm([...vehicleImages, ...uploadedItems]);
+      showSuccess("Fotos adicionadas com sucesso.");
+    } catch (error: any) {
+      console.error("Erro ao enviar imagens:", error);
+      showError(error?.message || "Não foi possível enviar as imagens.");
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const handleSetMainImage = (index: number) => {
+    if (index <= 0) return;
+
+    const updated = [...vehicleImages];
+    const [selected] = updated.splice(index, 1);
+    updated.unshift(selected);
+
+    syncImagesToForm(updated);
+  };
+
+  const handlePreviewImage = (index: number) => {
+    setPreviewImageIndex(index);
+  };
+
+  const handleRemoveImage = async (index: number) => {
+    const image = vehicleImages[index];
+    if (!image) return;
+
+    try {
+      if (image.path) {
+        const { error } = await supabase.storage
+          .from("Vehicles-Joinha")
+          .remove([image.path]);
+
+        if (error) throw error;
+      }
+
+      const updated = vehicleImages.filter((_, i) => i !== index);
+      syncImagesToForm(updated);
+      showSuccess("Foto removida.");
+    } catch (error: any) {
+      console.error("Erro ao remover imagem:", error);
+      showError(error?.message || "Não foi possível remover a foto.");
+    }
+  };
+
+  const excluirVeiculo = async (vehicle: Vehicle) => {
+    if (!canEditInventory) return;
+
+    const confirmar = window.confirm(
+      "Tem certeza que deseja excluir este cadastro? Isso vai apagar o veículo da tabela e remover as fotos do bucket."
+    );
+
+    if (!confirmar) return;
+
+    try {
+      setDeletingId(vehicle.id);
+
+      const imagePaths = (vehicle.images_large || [])
+        .map((url) => extractStoragePathFromUrl(url))
+        .filter(Boolean) as string[];
+
+      if (imagePaths.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from("Vehicles-Joinha")
+          .remove(imagePaths);
+
+        if (storageError) throw storageError;
+      }
+
+      const { error: dbError } = await supabase
+        .from("vehicles_joinha")
+        .delete()
+        .eq("id", vehicle.id);
+
+      if (dbError) throw dbError;
+
+      await carregarVehicles();
+      showSuccess("Cadastro excluído com sucesso.");
+    } catch (error: any) {
+      console.error("Erro ao excluir veículo:", error);
+      showError(error?.message || "Não foi possível excluir o cadastro.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const salvarVeiculo = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -1109,6 +1377,7 @@ const Inventory = () => {
       setCadastroAberto(false);
       setEditingVehicle(null);
       setForm(emptyForm());
+      resetImageState();
       await Promise.all([carregarVehicles(), carregarCatalogo()]);
     } catch (error: any) {
       console.error("Erro ao salvar veículo:", error);
@@ -1152,7 +1421,10 @@ const Inventory = () => {
   const formTitle = editingVehicle ? "Alterar veículo" : "Cadastrar veículo";
 
   const selectClass =
-    "w-full h-10 rounded-md border border-zinc-800 bg-zinc-900 px-3 text-white outline-none focus:border-[#d4af37]";
+    "w-full h-10 rounded-md border border-[#1c3b4f] bg-[#0b1d2a] px-3 text-white outline-none focus:border-[#2aa7b8]";
+
+  const selectedPreviewImage =
+    vehicleImages[previewImageIndex] || vehicleImages[0] || null;
 
   return (
     <div className="space-y-6">
@@ -1161,7 +1433,7 @@ const Inventory = () => {
           <h1 className="text-3xl font-black text-white tracking-tight">
             Estoque
           </h1>
-          <p className="text-zinc-400 text-sm mt-2">
+          <p className="text-slate-400 text-sm mt-2">
             Gestão do estoque da Joinha. Ative, desative, cadastre ou altere
             veículos conforme necessário.
           </p>
@@ -1171,7 +1443,7 @@ const Inventory = () => {
           {canEditInventory && (
             <Button
               onClick={abrirCadastro}
-              className="bg-[#d4af37] hover:bg-[#c39b2d] text-black font-black"
+              className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
             >
               <Plus size={16} className="mr-2" />
               Cadastrar veículo
@@ -1184,7 +1456,7 @@ const Inventory = () => {
               carregarCatalogo();
             }}
             variant="outline"
-            className="border-zinc-700 bg-transparent text-white hover:bg-zinc-900 hover:text-white"
+            className="border-[#27455a] bg-transparent text-white hover:bg-[#0b1d2a] hover:text-white"
             disabled={loading}
           >
             <RefreshCcw size={16} className="mr-2" />
@@ -1193,7 +1465,7 @@ const Inventory = () => {
 
           <Button
             onClick={() => navigate("/dashboard")}
-            className="border border-zinc-700 bg-zinc-900 text-white hover:bg-zinc-800 hover:text-white"
+            className="border border-[#27455a] bg-[#0b1d2a] text-white hover:bg-[#12364a] hover:text-white"
           >
             <ArrowLeft size={16} className="mr-2" />
             Voltar
@@ -1203,12 +1475,12 @@ const Inventory = () => {
 
       {cadastroAberto && canEditInventory && (
         <div ref={formRef} className="scroll-mt-24">
-          <Card className="bg-[#101010] border-[#d4af37]/40 rounded-2xl">
+          <Card className="bg-[#0a1722] border-[#2aa7b8]/40 rounded-2xl">
             <CardContent className="p-6 md:p-8 space-y-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-2xl font-black text-white">{formTitle}</h2>
-                  <p className="text-zinc-400 text-sm mt-2">
+                  <p className="text-slate-400 text-sm mt-2">
                     {editingVehicle
                       ? "Atualize os dados do veículo e ajuste o status no estoque."
                       : "Cadastre um novo veículo e escolha se ele estará ativo ou inativo no estoque."}
@@ -1218,7 +1490,7 @@ const Inventory = () => {
                 <Button
                   onClick={fecharCadastro}
                   variant="outline"
-                  className="border-zinc-700 bg-transparent text-white hover:bg-zinc-900 hover:text-white"
+                  className="border-[#27455a] bg-transparent text-white hover:bg-[#0b1d2a] hover:text-white"
                   disabled={saving || catalogSaving}
                 >
                   <X size={16} className="mr-2" />
@@ -1229,7 +1501,7 @@ const Inventory = () => {
               <form onSubmit={salvarVeiculo} className="space-y-5">
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Categoria
                     </label>
 
@@ -1282,7 +1554,7 @@ const Inventory = () => {
                           }))
                         }
                         placeholder="Nova categoria"
-                        className="bg-zinc-900 border-zinc-800 text-white"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                         disabled={saving || catalogSaving}
                       />
 
@@ -1290,7 +1562,7 @@ const Inventory = () => {
                         type="button"
                         onClick={() => criarItemCatalogo("category")}
                         disabled={saving || catalogSaving}
-                        className="bg-[#d4af37] hover:bg-[#c39b2d] text-black font-black"
+                        className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                         title="Criar categoria"
                       >
                         <Plus size={16} />
@@ -1299,7 +1571,7 @@ const Inventory = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Marca
                     </label>
 
@@ -1350,7 +1622,7 @@ const Inventory = () => {
                           }))
                         }
                         placeholder="Nova marca"
-                        className="bg-zinc-900 border-zinc-800 text-white"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                         disabled={saving || catalogSaving || !form.category}
                       />
 
@@ -1358,7 +1630,7 @@ const Inventory = () => {
                         type="button"
                         onClick={() => criarItemCatalogo("make")}
                         disabled={saving || catalogSaving || !form.category}
-                        className="bg-[#d4af37] hover:bg-[#c39b2d] text-black font-black"
+                        className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                         title="Criar marca"
                       >
                         <Plus size={16} />
@@ -1367,7 +1639,7 @@ const Inventory = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Modelo
                     </label>
 
@@ -1419,7 +1691,7 @@ const Inventory = () => {
                           }))
                         }
                         placeholder="Novo modelo"
-                        className="bg-zinc-900 border-zinc-800 text-white"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                         disabled={
                           saving || catalogSaving || !form.category || !form.make
                         }
@@ -1431,7 +1703,7 @@ const Inventory = () => {
                         disabled={
                           saving || catalogSaving || !form.category || !form.make
                         }
-                        className="bg-[#d4af37] hover:bg-[#c39b2d] text-black font-black"
+                        className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                         title="Criar modelo"
                       >
                         <Plus size={16} />
@@ -1440,7 +1712,7 @@ const Inventory = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Modelo base
                     </label>
 
@@ -1492,7 +1764,7 @@ const Inventory = () => {
                           }))
                         }
                         placeholder="Novo modelo base"
-                        className="bg-zinc-900 border-zinc-800 text-white"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                         disabled={
                           saving ||
                           catalogSaving ||
@@ -1512,7 +1784,7 @@ const Inventory = () => {
                           !form.make ||
                           !form.model
                         }
-                        className="bg-[#d4af37] hover:bg-[#c39b2d] text-black font-black"
+                        className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                         title="Criar modelo base"
                       >
                         <Plus size={16} />
@@ -1521,7 +1793,7 @@ const Inventory = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Título limpo
                     </label>
                     <Input
@@ -1530,13 +1802,13 @@ const Inventory = () => {
                         atualizarCampo("title_clean", e.target.value)
                       }
                       placeholder="HONDA CIVIC EXR"
-                      className="bg-zinc-900 border-zinc-800 text-white"
+                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                       disabled={saving}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Ano referência
                     </label>
                     <Input
@@ -1546,13 +1818,13 @@ const Inventory = () => {
                       }
                       placeholder="2016"
                       inputMode="numeric"
-                      className="bg-zinc-900 border-zinc-800 text-white"
+                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                       disabled={saving}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Ano fabricação
                     </label>
                     <Input
@@ -1565,13 +1837,13 @@ const Inventory = () => {
                       }
                       placeholder="2015"
                       inputMode="numeric"
-                      className="bg-zinc-900 border-zinc-800 text-white"
+                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                       disabled={saving}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Quilometragem
                     </label>
                     <Input
@@ -1581,13 +1853,13 @@ const Inventory = () => {
                       }
                       placeholder="82000"
                       inputMode="numeric"
-                      className="bg-zinc-900 border-zinc-800 text-white"
+                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                       disabled={saving}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Combustível
                     </label>
 
@@ -1615,7 +1887,7 @@ const Inventory = () => {
                           }))
                         }
                         placeholder="Novo combustível"
-                        className="bg-zinc-900 border-zinc-800 text-white"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                         disabled={saving}
                       />
 
@@ -1623,7 +1895,7 @@ const Inventory = () => {
                         type="button"
                         onClick={() => aplicarNovoAtributo("fuel")}
                         disabled={saving}
-                        className="bg-[#d4af37] hover:bg-[#c39b2d] text-black font-black"
+                        className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                         title="Aplicar novo combustível"
                       >
                         <Plus size={16} />
@@ -1632,7 +1904,7 @@ const Inventory = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Câmbio
                     </label>
 
@@ -1660,7 +1932,7 @@ const Inventory = () => {
                           }))
                         }
                         placeholder="Novo câmbio"
-                        className="bg-zinc-900 border-zinc-800 text-white"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                         disabled={saving}
                       />
 
@@ -1668,7 +1940,7 @@ const Inventory = () => {
                         type="button"
                         onClick={() => aplicarNovoAtributo("gear")}
                         disabled={saving}
-                        className="bg-[#d4af37] hover:bg-[#c39b2d] text-black font-black"
+                        className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                         title="Aplicar novo câmbio"
                       >
                         <Plus size={16} />
@@ -1677,20 +1949,20 @@ const Inventory = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Motor
                     </label>
                     <Input
                       value={form.motor}
                       onChange={(e) => atualizarCampo("motor", e.target.value)}
                       placeholder="2.0"
-                      className="bg-zinc-900 border-zinc-800 text-white"
+                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                       disabled={saving}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Portas
                     </label>
                     <Input
@@ -1700,13 +1972,13 @@ const Inventory = () => {
                       }
                       placeholder="4"
                       inputMode="numeric"
-                      className="bg-zinc-900 border-zinc-800 text-white"
+                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                       disabled={saving}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Cor
                     </label>
 
@@ -1734,7 +2006,7 @@ const Inventory = () => {
                           }))
                         }
                         placeholder="Nova cor"
-                        className="bg-zinc-900 border-zinc-800 text-white"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                         disabled={saving}
                       />
 
@@ -1742,7 +2014,7 @@ const Inventory = () => {
                         type="button"
                         onClick={() => aplicarNovoAtributo("color")}
                         disabled={saving}
-                        className="bg-[#d4af37] hover:bg-[#c39b2d] text-black font-black"
+                        className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                         title="Aplicar nova cor"
                       >
                         <Plus size={16} />
@@ -1751,7 +2023,7 @@ const Inventory = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Preço
                     </label>
                     <Input
@@ -1763,13 +2035,13 @@ const Inventory = () => {
                         )
                       }
                       placeholder="78900"
-                      className="bg-zinc-900 border-zinc-800 text-white"
+                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                       disabled={saving}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Preço promocional
                     </label>
                     <Input
@@ -1781,13 +2053,13 @@ const Inventory = () => {
                         )
                       }
                       placeholder="Opcional"
-                      className="bg-zinc-900 border-zinc-800 text-white"
+                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                       disabled={saving}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Placa
                     </label>
                     <Input
@@ -1796,13 +2068,13 @@ const Inventory = () => {
                         atualizarCampo("plate", e.target.value.toUpperCase())
                       }
                       placeholder="FJR1A61"
-                      className="bg-zinc-900 border-zinc-800 text-white"
+                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                       disabled={saving}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Final da placa
                     </label>
                     <Input
@@ -1811,13 +2083,13 @@ const Inventory = () => {
                         atualizarCampo("plate_final", e.target.value)
                       }
                       placeholder="1"
-                      className="bg-zinc-900 border-zinc-800 text-white"
+                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                       disabled={saving}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Versão
                     </label>
 
@@ -1845,7 +2117,7 @@ const Inventory = () => {
                           }))
                         }
                         placeholder="Nova versão"
-                        className="bg-zinc-900 border-zinc-800 text-white"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                         disabled={saving}
                       />
 
@@ -1853,7 +2125,7 @@ const Inventory = () => {
                         type="button"
                         onClick={() => aplicarNovoAtributo("version")}
                         disabled={saving}
-                        className="bg-[#d4af37] hover:bg-[#c39b2d] text-black font-black"
+                        className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                         title="Aplicar nova versão"
                       >
                         <Plus size={16} />
@@ -1861,28 +2133,164 @@ const Inventory = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-2 xl:col-span-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                  <div className="space-y-3 xl:col-span-2">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Imagens
                     </label>
-                    <Textarea
-                      value={form.images_large_text}
-                      onChange={(e) =>
-                        atualizarCampo("images_large_text", e.target.value)
-                      }
-                      placeholder="Cole uma URL por linha"
-                      className="bg-zinc-900 border-zinc-800 text-white min-h-[120px]"
-                      disabled={saving}
-                    />
-                    <p className="text-xs text-zinc-500 flex items-center gap-2">
-                      <Upload size={14} />
-                      Uma URL de imagem por linha. Isso será salvo em
-                      `images_large`.
-                    </p>
+
+                    <div className="rounded-2xl border border-[#1c3b4f] bg-[#07131f] p-4 space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-white">
+                            Fotos do veículo
+                          </p>
+                          <p className="text-xs text-slate-400 mt-1">
+                            Máximo de 10 fotos. Clique para visualizar, use a
+                            estrela para definir a principal do card.
+                          </p>
+                        </div>
+
+                        <input
+                          ref={imageInputRef}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={handleSelectImages}
+                        />
+
+                        <Button
+                          type="button"
+                          onClick={() => imageInputRef.current?.click()}
+                          disabled={
+                            saving ||
+                            catalogSaving ||
+                            uploadingImages ||
+                            vehicleImages.length >= 10
+                          }
+                          className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
+                        >
+                          <Upload size={16} className="mr-2" />
+                          {uploadingImages ? "Enviando..." : "Selecionar fotos"}
+                        </Button>
+                      </div>
+
+                      {vehicleImages.length > 0 ? (
+                        <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_1fr] gap-4">
+                          <div className="space-y-2">
+                            <p className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                              Foto principal do card
+                            </p>
+
+                            <div className="relative overflow-hidden rounded-2xl border border-[#1c3b4f] bg-[#081521]">
+                              <img
+                                src={vehicleImages[0].url}
+                                alt="Foto principal do veículo"
+                                className="w-full h-[260px] object-cover object-center"
+                              />
+                              <div className="absolute top-3 left-3 rounded-full bg-[#0f2c3d]/80 px-3 py-1 text-xs font-bold text-white border border-[#27566f]">
+                                Principal
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <p className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                              Miniaturas
+                            </p>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {vehicleImages.map((img, index) => {
+                                const isMain = index === 0;
+                                const isPreview = index === previewImageIndex;
+
+                                return (
+                                  <div
+                                    key={`${img.url}-${index}`}
+                                    className={cn(
+                                      "relative overflow-hidden rounded-xl border bg-[#081521]",
+                                      isMain
+                                        ? "border-[#2aa7b8]"
+                                        : isPreview
+                                        ? "border-sky-500"
+                                        : "border-[#1c3b4f]"
+                                    )}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePreviewImage(index)}
+                                      className="block w-full"
+                                      title="Visualizar"
+                                    >
+                                      <img
+                                        src={img.url}
+                                        alt={`Miniatura ${index + 1}`}
+                                        className="w-full h-[92px] object-cover object-center"
+                                      />
+                                    </button>
+
+                                    <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-2">
+                                      {isMain ? (
+                                        <span className="rounded-full bg-[#2aa7b8] px-2 py-1 text-[10px] font-black text-white">
+                                          PRINCIPAL
+                                        </span>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSetMainImage(index)}
+                                          className="rounded-full bg-[#0f2c3d]/80 p-1.5 text-white border border-[#27566f] hover:bg-[#12364a]"
+                                          title="Definir como principal do card"
+                                        >
+                                          <Star size={12} />
+                                        </button>
+                                      )}
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveImage(index)}
+                                        className="rounded-full bg-[#0f2c3d]/80 p-1.5 text-red-300 border border-[#27566f] hover:bg-[#12364a]"
+                                        title="Remover foto"
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {selectedPreviewImage && (
+                              <div className="space-y-2 pt-2">
+                                <p className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                                  Visualização selecionada
+                                </p>
+                                <div className="relative overflow-hidden rounded-2xl border border-[#1c3b4f] bg-[#081521]">
+                                  <img
+                                    src={selectedPreviewImage.url}
+                                    alt="Visualização selecionada"
+                                    className="w-full h-[220px] object-cover object-center"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-[#27455a] bg-[#07131f] p-6 text-center">
+                          <p className="text-sm text-slate-400">
+                            Nenhuma foto adicionada ainda.
+                          </p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Clique em “Selecionar fotos” para enviar até 10
+                            imagens.
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-2 xl:col-span-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Opções / opcionais
                     </label>
                     <Textarea
@@ -1891,13 +2299,13 @@ const Inventory = () => {
                         atualizarCampo("options_clean", e.target.value)
                       }
                       placeholder="Ar-condicionado, direção elétrica..."
-                      className="bg-zinc-900 border-zinc-800 text-white min-h-[100px]"
+                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white min-h-[100px]"
                       disabled={saving}
                     />
                   </div>
 
                   <div className="space-y-2 xl:col-span-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Descrição
                     </label>
                     <Textarea
@@ -1906,13 +2314,13 @@ const Inventory = () => {
                         atualizarCampo("description_clean", e.target.value)
                       }
                       placeholder="Descrição completa do veículo..."
-                      className="bg-zinc-900 border-zinc-800 text-white min-h-[120px]"
+                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white min-h-[120px]"
                       disabled={saving}
                     />
                   </div>
 
                   <div className="space-y-2 xl:col-span-2">
-                    <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                       Status do estoque
                     </label>
                     <select
@@ -1926,7 +2334,7 @@ const Inventory = () => {
                       <option value="true">Ativo</option>
                       <option value="false">Inativo</option>
                     </select>
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-slate-500">
                       Ativo = aparece para a IA. Inativo = fica salvo, mas não
                       entra na busca do agente.
                     </p>
@@ -1937,13 +2345,13 @@ const Inventory = () => {
                   <Button
                     type="submit"
                     disabled={saving || catalogSaving}
-                    className="bg-[#d4af37] hover:bg-[#c39b2d] text-black font-black"
+                    className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                   >
                     {saving ? "Salvando alterações..." : "Salvar alterações"}
                   </Button>
 
                   {catalogSaving && (
-                    <span className="text-sm text-zinc-400 self-center">
+                    <span className="text-sm text-slate-400 self-center">
                       Atualizando catálogo...
                     </span>
                   )}
@@ -1955,22 +2363,22 @@ const Inventory = () => {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-black border-zinc-800 rounded-2xl">
+        <Card className="bg-[#081521] border-[#1c3b4f] rounded-2xl">
           <CardContent className="p-5 min-h-[120px] flex flex-col justify-between">
             <div className="flex items-start justify-between">
-              <span className="text-zinc-500 text-sm font-black uppercase tracking-widest">
+              <span className="text-slate-400 text-sm font-black uppercase tracking-widest">
                 Total
               </span>
-              <Car size={18} className="text-[#d4af37]" />
+              <Car size={18} className="text-[#2aa7b8]" />
             </div>
             <div className="text-4xl font-black text-white">{totalVeiculos}</div>
           </CardContent>
         </Card>
 
-        <Card className="bg-black border-zinc-800 rounded-2xl">
+        <Card className="bg-[#081521] border-[#1c3b4f] rounded-2xl">
           <CardContent className="p-5 min-h-[120px] flex flex-col justify-between">
             <div className="flex items-start justify-between">
-              <span className="text-zinc-500 text-sm font-black uppercase tracking-widest">
+              <span className="text-slate-400 text-sm font-black uppercase tracking-widest">
                 Ativos
               </span>
               <CheckCircle2 size={18} className="text-emerald-400" />
@@ -1981,38 +2389,38 @@ const Inventory = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-black border-zinc-800 rounded-2xl">
+        <Card className="bg-[#081521] border-[#1c3b4f] rounded-2xl">
           <CardContent className="p-5 min-h-[120px] flex flex-col justify-between">
             <div className="flex items-start justify-between">
-              <span className="text-zinc-500 text-sm font-black uppercase tracking-widest">
+              <span className="text-slate-400 text-sm font-black uppercase tracking-widest">
                 Inativos
               </span>
-              <CircleX size={18} className="text-zinc-300" />
+              <CircleX size={18} className="text-slate-300" />
             </div>
-            <div className="text-4xl font-black text-zinc-300">
+            <div className="text-4xl font-black text-slate-300">
               {veiculosInativos}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="bg-[#101010] border-zinc-800 rounded-2xl">
+      <Card className="bg-[#0a1722] border-[#1c3b4f] rounded-2xl">
         <CardContent className="p-6 md:p-8 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+              <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                 Placa
               </label>
               <Input
                 value={placaBusca}
                 onChange={(e) => setPlacaBusca(e.target.value.toUpperCase())}
                 placeholder="Ex.: FJR1A61"
-                className="bg-zinc-900 border-zinc-800 text-white"
+                className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+              <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                 Marca
               </label>
               <select
@@ -2033,7 +2441,7 @@ const Inventory = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+              <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                 Modelo
               </label>
               <select
@@ -2051,7 +2459,7 @@ const Inventory = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">
+              <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                 Status
               </label>
               <select
@@ -2071,7 +2479,7 @@ const Inventory = () => {
           <div className="flex flex-wrap gap-3">
             <Button
               onClick={aplicarFiltros}
-              className="bg-[#d4af37] hover:bg-[#c39b2d] text-black font-black"
+              className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
             >
               <Search size={16} className="mr-2" />
               Buscar
@@ -2080,7 +2488,7 @@ const Inventory = () => {
             <Button
               onClick={limparFiltros}
               variant="outline"
-              className="border-zinc-700 bg-transparent text-white hover:bg-zinc-900 hover:text-white"
+              className="border-[#27455a] bg-transparent text-white hover:bg-[#0b1d2a] hover:text-white"
             >
               Limpar filtros
             </Button>
@@ -2089,14 +2497,14 @@ const Inventory = () => {
       </Card>
 
       {loading ? (
-        <Card className="bg-[#101010] border-zinc-800 rounded-2xl">
-          <CardContent className="p-6 text-zinc-400">
+        <Card className="bg-[#0a1722] border-[#1c3b4f] rounded-2xl">
+          <CardContent className="p-6 text-slate-400">
             Carregando estoque...
           </CardContent>
         </Card>
       ) : filteredVehicles.length === 0 ? (
-        <Card className="bg-[#101010] border-zinc-800 rounded-2xl">
-          <CardContent className="p-6 text-zinc-400">
+        <Card className="bg-[#0a1722] border-[#1c3b4f] rounded-2xl">
+          <CardContent className="p-6 text-slate-400">
             Nenhum veículo encontrado com os filtros atuais.
           </CardContent>
         </Card>
@@ -2105,20 +2513,36 @@ const Inventory = () => {
           {filteredVehicles.map((vehicle) => {
             const isActive = vehicle.available !== false;
             const isToggling = togglingId === vehicle.id;
+            const images = getVehicleImages(vehicle);
 
             return (
               <Card
                 key={vehicle.id}
-                className="bg-[#101010] border-zinc-800 rounded-2xl"
+                className="bg-[#0a1722] border-[#1c3b4f] rounded-2xl"
               >
                 <CardContent className="p-6 md:p-8">
                   <div className="flex flex-col lg:flex-row gap-5">
-                    <div className="w-full lg:w-[260px] shrink-0">
-                      <img
-                        src={getVehicleImage(vehicle)}
-                        alt={`${vehicle.make || ""} ${vehicle.model || ""}`}
-                        className="w-full h-[170px] object-cover rounded-xl border border-zinc-800 bg-black"
-                      />
+                    <div className="w-full lg:w-[380px] shrink-0">
+                      <div className="space-y-3">
+                        <img
+                          src={images[0]}
+                          alt={`${vehicle.make || ""} ${vehicle.model || ""} - foto principal`}
+                          className="w-full h-[300px] md:h-[340px] object-cover object-center rounded-2xl border border-[#1c3b4f] bg-[#081521]"
+                        />
+
+                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                          {images.slice(1).map((img, index) => (
+                            <img
+                              key={`${vehicle.id}-${index}`}
+                              src={img}
+                              alt={`${vehicle.make || ""} ${vehicle.model || ""} - foto ${
+                                index + 2
+                              }`}
+                              className="w-full h-[68px] object-cover rounded-xl border border-[#1c3b4f] bg-[#081521] transition-all duration-300 hover:scale-[1.03] hover:border-[#2aa7b8]/60 hover:shadow-[0_0_0_1px_rgba(42,167,184,0.18)] cursor-default"
+                            />
+                          ))}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex-1 space-y-4">
@@ -2134,14 +2558,14 @@ const Inventory = () => {
                                 "border",
                                 isActive
                                   ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                                  : "bg-zinc-500/15 text-zinc-300 border-zinc-500/30"
+                                  : "bg-slate-500/15 text-slate-300 border-slate-500/30"
                               )}
                             >
                               {isActive ? "Ativo" : "Inativo"}
                             </Badge>
                           </div>
 
-                          <p className="text-zinc-400 text-sm mt-1">
+                          <p className="text-slate-400 text-sm mt-1">
                             {vehicle.title_clean || "Sem título"}
                           </p>
                         </div>
@@ -2151,7 +2575,7 @@ const Inventory = () => {
                             <Button
                               onClick={() => abrirEdicao(vehicle)}
                               variant="outline"
-                              className="border-zinc-700 bg-transparent text-white hover:bg-zinc-900 hover:text-white"
+                              className="border-[#27455a] bg-transparent text-white hover:bg-[#0b1d2a] hover:text-white"
                             >
                               <PencilLine size={16} className="mr-2" />
                               Alterar
@@ -2161,7 +2585,7 @@ const Inventory = () => {
                               <Button
                                 onClick={() => alterarStatus(vehicle, false)}
                                 disabled={isToggling}
-                                className="bg-zinc-800 hover:bg-zinc-700 text-white font-black"
+                                className="bg-[#12364a] hover:bg-[#17485f] text-white font-black"
                               >
                                 {isToggling ? "Processando..." : "Desativar"}
                               </Button>
@@ -2169,18 +2593,28 @@ const Inventory = () => {
                               <Button
                                 onClick={() => alterarStatus(vehicle, true)}
                                 disabled={isToggling}
-                                className="bg-[#d4af37] hover:bg-[#c39b2d] text-black font-black"
+                                className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                               >
                                 {isToggling ? "Processando..." : "Ativar"}
                               </Button>
                             )}
+
+                            <Button
+                              onClick={() => excluirVeiculo(vehicle)}
+                              disabled={deletingId === vehicle.id}
+                              className="bg-red-600 hover:bg-red-700 text-white font-black"
+                            >
+                              {deletingId === vehicle.id
+                                ? "Excluindo..."
+                                : "Excluir cadastro"}
+                            </Button>
                           </div>
                         )}
                       </div>
 
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                         <div>
-                          <p className="text-zinc-500 uppercase text-xs font-bold">
+                          <p className="text-slate-400 uppercase text-xs font-bold">
                             Placa
                           </p>
                           <p className="text-white font-semibold">
@@ -2189,7 +2623,7 @@ const Inventory = () => {
                         </div>
 
                         <div>
-                          <p className="text-zinc-500 uppercase text-xs font-bold">
+                          <p className="text-slate-400 uppercase text-xs font-bold">
                             Ano
                           </p>
                           <p className="text-white font-semibold">
@@ -2198,7 +2632,7 @@ const Inventory = () => {
                         </div>
 
                         <div>
-                          <p className="text-zinc-500 uppercase text-xs font-bold">
+                          <p className="text-slate-400 uppercase text-xs font-bold">
                             Preço
                           </p>
                           <p className="text-white font-semibold">
@@ -2207,7 +2641,7 @@ const Inventory = () => {
                         </div>
 
                         <div>
-                          <p className="text-zinc-500 uppercase text-xs font-bold">
+                          <p className="text-slate-400 uppercase text-xs font-bold">
                             Cor
                           </p>
                           <p className="text-white font-semibold">
@@ -2216,7 +2650,7 @@ const Inventory = () => {
                         </div>
 
                         <div>
-                          <p className="text-zinc-500 uppercase text-xs font-bold">
+                          <p className="text-slate-400 uppercase text-xs font-bold">
                             Combustível
                           </p>
                           <p className="text-white font-semibold">
@@ -2225,7 +2659,7 @@ const Inventory = () => {
                         </div>
 
                         <div>
-                          <p className="text-zinc-500 uppercase text-xs font-bold">
+                          <p className="text-slate-400 uppercase text-xs font-bold">
                             Câmbio
                           </p>
                           <p className="text-white font-semibold">
@@ -2234,7 +2668,7 @@ const Inventory = () => {
                         </div>
 
                         <div>
-                          <p className="text-zinc-500 uppercase text-xs font-bold">
+                          <p className="text-slate-400 uppercase text-xs font-bold">
                             Motor
                           </p>
                           <p className="text-white font-semibold">
@@ -2243,7 +2677,7 @@ const Inventory = () => {
                         </div>
 
                         <div>
-                          <p className="text-zinc-500 uppercase text-xs font-bold">
+                          <p className="text-slate-400 uppercase text-xs font-bold">
                             Portas
                           </p>
                           <p className="text-white font-semibold">
@@ -2252,19 +2686,19 @@ const Inventory = () => {
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
                         {vehicle.base_model && (
-                          <span className="rounded-full border border-zinc-800 px-3 py-1">
+                          <span className="rounded-full border border-[#1c3b4f] px-3 py-1">
                             Base: {vehicle.base_model}
                           </span>
                         )}
                         {vehicle.version && (
-                          <span className="rounded-full border border-zinc-800 px-3 py-1">
+                          <span className="rounded-full border border-[#1c3b4f] px-3 py-1">
                             Versão: {vehicle.version}
                           </span>
                         )}
                         {vehicle.category && (
-                          <span className="rounded-full border border-zinc-800 px-3 py-1">
+                          <span className="rounded-full border border-[#1c3b4f] px-3 py-1">
                             Categoria: {vehicle.category}
                           </span>
                         )}

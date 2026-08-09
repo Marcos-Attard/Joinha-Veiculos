@@ -201,7 +201,7 @@ const Showroom = () => {
     setMessages([
       {
         id: "1",
-        text: "Olá! Sou o Jarvis, assistente virtual da Joinha Veículos. Poderia me informar seu nome?",
+        text: "Olá! Sou a Maya, assistente virtual da Joinha Veículos. Poderia me informar seu nome?",
         sender: "ai",
       },
     ]);
@@ -243,7 +243,7 @@ const Showroom = () => {
   );
 
   return (
-    <div className="flex flex-col items-center justify-between min-h-screen w-full bg-black py-10 px-4 overflow-y-auto text-white font-sans">
+    <div className="flex flex-col items-center justify-between min-h-screen w-full bg-[#081521] py-10 px-4 overflow-y-auto text-white font-sans">
       {!isChatActive ? (
         <WelcomeScreen logoSrc={logoSrc} startAgente={startAgente} />
       ) : (
