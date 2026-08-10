@@ -198,7 +198,7 @@ const CreditResults: React.FC<CreditResultsProps> = ({
           <div className="mt-8 space-y-6">
             <div className="p-6 rounded-2xl bg-zinc-900/80 border border-[#FFD700]/30 text-center">
               <p className="text-white font-bold text-sm leading-relaxed">
-                {simulationData.nome}, assim que você confirmar este envio, um de nossos consultores entrará em contato o mais breve possível, por favor pedimos somente que o aguarde. A Styllo Motors agradece.
+                {simulationData.nome}, assim que você confirmar este envio, um de nossos consultores entrará em contato o mais breve possível, por favor pedimos somente que o aguarde. A Joinha Veículos agradece.
               </p>
             </div>
             <Button
