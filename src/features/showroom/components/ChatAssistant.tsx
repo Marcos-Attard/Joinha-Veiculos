@@ -119,7 +119,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({
         {isLoading && (
           <div className="flex gap-2 p-4 text-zinc-500 italic text-sm">
             <Loader2 className="animate-spin" size={16} />
-            Jarvis processando...
+            Maya processando...
           </div>
         )}
       </div>
