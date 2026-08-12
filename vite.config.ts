@@ -16,8 +16,8 @@ export default defineConfig(() => ({
       registerType: "autoUpdate",
       includeAssets: [
         "favicon.ico",
-        "joinha-loja-icon.png",
-        "joinha-staff-icon.png"
+        "joinha-loja-icon-v2.png",
+        "joinha-staff-icon-v2.png"
       ],
       manifest: {
         name: "Joinha Veículos",
@@ -29,19 +29,19 @@ export default defineConfig(() => ({
         theme_color: "#081521",
         icons: [
           {
-            src: "/joinha-loja-icon.png",
+            src: "/joinha-loja-icon-v2.png",
             sizes: "192x192",
             type: "image/png",
             purpose: "any"
           },
           {
-            src: "/joinha-loja-icon.png",
+            src: "/joinha-loja-icon-v2.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "any"
           },
           {
-            src: "/joinha-loja-icon.png",
+            src: "/joinha-loja-icon-v2.png",
             sizes: "1024x1024",
             type: "image/png",
             purpose: "maskable"

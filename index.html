@@ -11,28 +11,24 @@
       rel="icon"
       type="image/png"
       sizes="512x512"
-      href="/joinha-loja-icon.png?v=1"
+      href="/joinha-loja-icon-v2.png"
     />
 
     <link
       id="app-shortcut-icon"
       rel="shortcut icon"
       type="image/png"
-      href="/joinha-loja-icon.png?v=1"
+      href="/joinha-loja-icon-v2.png"
     />
 
     <link
       id="app-apple-touch-icon"
       rel="apple-touch-icon"
       sizes="180x180"
-      href="/joinha-loja-icon.png?v=1"
+      href="/joinha-loja-icon-v2.png"
     />
 
-    <link
-      id="app-manifest"
-      rel="manifest"
-      href="/manifest.webmanifest"
-    />
+    <link id="app-manifest" rel="manifest" href="/manifest-loja.webmanifest" />
 
     <meta
       id="app-name"
@@ -52,52 +48,50 @@
 
     <script>
       (function () {
-        var path = window.location.pathname;
+        var staffRoutes = [
+          "/login",
+          "/inventory",
+          "/leads",
+          "/gerentes",
+          "/vendedores",
+          "/bank-integrations",
+          "/trocar-senha"
+        ];
 
-        var isStaff =
-          path === "/login" ||
-          path.indexOf("/login/") === 0 ||
-          path === "/dashboard" ||
-          path.indexOf("/dashboard/") === 0 ||
-          path === "/estoque" ||
-          path.indexOf("/estoque/") === 0 ||
-          path === "/leads" ||
-          path.indexOf("/leads/") === 0 ||
-          path === "/integracoes" ||
-          path.indexOf("/integracoes/") === 0 ||
-          path === "/fechado" ||
-          path.indexOf("/fechado/") === 0;
+        var path = window.location.pathname.toLowerCase();
+        var isStaff = staffRoutes.some(function (route) {
+          return path === route || path.startsWith(route + "/");
+        });
 
-        if (!isStaff) {
-          return;
+        var manifest = document.getElementById("app-manifest");
+        if (manifest) {
+          manifest.setAttribute(
+            "href",
+            isStaff ? "/manifest-staff.webmanifest" : "/manifest-loja.webmanifest"
+          );
         }
 
-        document.title = "Joinha Staff";
+        if (isStaff) {
+          document.title = "Joinha Staff";
+          var staffIcon = "/joinha-staff-icon-v2.png";
+          
+          var appIcon = document.getElementById("app-icon");
+          var shortcutIcon = document.getElementById("app-shortcut-icon");
+          var appleIcon = document.getElementById("app-apple-touch-icon");
+          var appName = document.getElementById("app-name");
+          var appAppleTitle = document.getElementById("app-apple-title");
 
-        var staffIcon = "/joinha-staff-icon.png?v=1";
-        var staffManifest = "/manifest-staff.webmanifest";
-
-        var appIcon = document.getElementById("app-icon");
-        var shortcutIcon = document.getElementById("app-shortcut-icon");
-        var appleIcon = document.getElementById("app-apple-touch-icon");
-        var appManifest = document.getElementById("app-manifest");
-        var appName = document.getElementById("app-name");
-        var appAppleTitle = document.getElementById("app-apple-title");
-
-        if (appIcon) appIcon.setAttribute("href", staffIcon);
-        if (shortcutIcon) shortcutIcon.setAttribute("href", staffIcon);
-        if (appleIcon) appleIcon.setAttribute("href", staffIcon);
-        if (appManifest) appManifest.setAttribute("href", staffManifest);
-        if (appName) appName.setAttribute("content", "Joinha Staff");
-        if (appAppleTitle) appAppleTitle.setAttribute("content", "Joinha Staff");
+          if (appIcon) appIcon.setAttribute("href", staffIcon);
+          if (shortcutIcon) shortcutIcon.setAttribute("href", staffIcon);
+          if (appleIcon) appleIcon.setAttribute("href", staffIcon);
+          if (appName) appName.setAttribute("content", "Joinha Staff");
+          if (appAppleTitle) appAppleTitle.setAttribute("content", "Joinha Staff");
+        }
 
         window.OneSignalDeferred = window.OneSignalDeferred || [];
-
         var onesignalScript = document.createElement("script");
-        onesignalScript.src =
-          "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
+        onesignalScript.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
         onesignalScript.defer = true;
-
         onesignalScript.onload = function () {
           window.OneSignalDeferred.push(async function (OneSignal) {
             await OneSignal.init({
@@ -105,7 +99,6 @@
             });
           });
         };
-
         document.head.appendChild(onesignalScript);
       })();
     </script>
