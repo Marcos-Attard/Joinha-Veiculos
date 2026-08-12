@@ -49,7 +49,9 @@ export default defineConfig(() => ({
         ]
       },
       workbox: {
-        navigateFallback: "/index.html"
+        navigateFallback: "/index.html",
+        cacheId: "joinha-pwa-v2",
+        cleanupOutdatedCaches: true
       }
     }),
   ],
