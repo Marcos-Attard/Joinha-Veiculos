@@ -17,37 +17,13 @@ export default defineConfig(() => ({
       includeAssets: [
         "favicon.ico",
         "joinha-loja-icon-v2.png",
-        "joinha-staff-icon-v2.png"
+        "joinha-staff-icon-v2.png",
+        "manifest-loja.webmanifest",
+        "manifest-staff.webmanifest",
+        "OneSignalSDKWorker.js",
+        "robots.txt"
       ],
-      manifest: {
-        name: "Joinha Veículos",
-        short_name: "Joinha",
-        start_url: "/",
-        scope: "/",
-        display: "standalone",
-        background_color: "#081521",
-        theme_color: "#081521",
-        icons: [
-          {
-            src: "/joinha-loja-icon-v2.png",
-            sizes: "192x192",
-            type: "image/png",
-            purpose: "any"
-          },
-          {
-            src: "/joinha-loja-icon-v2.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "any"
-          },
-          {
-            src: "/joinha-loja-icon-v2.png",
-            sizes: "1024x1024",
-            type: "image/png",
-            purpose: "maskable"
-          }
-        ]
-      },
+      manifest: false,
       workbox: {
         navigateFallback: "/index.html",
         cacheId: "joinha-pwa-v2",
