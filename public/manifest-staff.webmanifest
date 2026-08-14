@@ -1,5 +1,5 @@
-﻿{
-  "id": "/staff-v6",
+{
+  "id": "/staff-v7",
   "name": "Joinha Staff",
   "short_name": "Joinha Staff",
   "start_url": "/login",
@@ -24,8 +24,7 @@
       "src": "/joinha-staff-icon-v6-1024.png",
       "sizes": "1024x1024",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "maskable"
     }
   ]
 }
-

@@ -1,6 +1,6 @@
-﻿{
-  "id": "/loja-v6",
-  "name": "Joinha VeÃ­culos",
+{
+  "id": "/loja-v7",
+  "name": "Joinha Veículos",
   "short_name": "Joinha",
   "start_url": "/",
   "scope": "/",
@@ -24,8 +24,7 @@
       "src": "/joinha-loja-icon-v6-1024.png",
       "sizes": "1024x1024",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "maskable"
     }
   ]
 }
-
