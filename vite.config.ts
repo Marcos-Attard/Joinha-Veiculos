@@ -30,7 +30,7 @@ export default defineConfig(() => ({
       manifest: false,
       workbox: {
         navigateFallback: "/index.html",
-        cacheId: "joinha-pwa-v8",
+        cacheId: "joinha-pwa-v9",
         cleanupOutdatedCaches: true
       }
     }),

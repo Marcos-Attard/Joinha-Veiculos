@@ -1,5 +1,5 @@
 {
-  "id": "/loja-v8",
+  "id": "/loja-v9",
   "name": "Joinha Veículos",
   "short_name": "Joinha",
   "start_url": "/",
@@ -24,7 +24,7 @@
       "src": "/joinha-loja-icon-v6-1024.png",
       "sizes": "1024x1024",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "maskable"
     }
   ]
 }
