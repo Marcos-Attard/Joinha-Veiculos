@@ -16,12 +16,12 @@ export default defineConfig(() => ({
       registerType: "autoUpdate",
       includeAssets: [
   "favicon.ico",
-  "joinha-loja-icon-v6-192.png",
-  "joinha-loja-icon-v6-512.png",
-  "joinha-loja-icon-v6-1024.png",
-  "joinha-staff-icon-v6-192.png",
-  "joinha-staff-icon-v6-512.png",
-  "joinha-staff-icon-v6-1024.png",
+  "joinha-loja-icon-v9-192.png",
+  "joinha-loja-icon-v9-512.png",
+  "joinha-loja-icon-v9-1024.png",
+  "joinha-staff-icon-v9-192.png",
+  "joinha-staff-icon-v9-512.png",
+  "joinha-staff-icon-v9-1024.png",
   "manifest-loja.webmanifest",
   "manifest-staff.webmanifest",
   "OneSignalSDKWorker.js",
@@ -41,4 +41,5 @@ export default defineConfig(() => ({
     },
   },
 }));
+
 
