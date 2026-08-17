@@ -112,7 +112,9 @@ const Login = () => {
           : "";
 
       const forceChangePassword =
-        (normalizedRole === "vendedor" || normalizedRole === "gerente") &&
+        (normalizedRole === "lojista" ||
+          normalizedRole === "vendedor" ||
+          normalizedRole === "gerente") &&
         profileData.precisa_trocar_senha === true;
 
       localStorage.setItem("is_authenticated", "true");
@@ -146,9 +148,9 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#121212] flex items-center justify-center p-6">
-      <Card className="w-full max-w-md bg-black border-zinc-800 shadow-2xl">
-        <CardHeader className="border-b border-zinc-900">
+    <div className="min-h-screen bg-[#07111b] flex items-center justify-center p-6">
+      <Card className="w-full max-w-md bg-[#0f1d2b] border-[#173146] shadow-2xl">
+        <CardHeader className="border-b border-[#173146]">
           <CardTitle className="text-white text-xl font-black">
             Acesso do Staff - Joinha Veículos
           </CardTitle>
@@ -166,7 +168,7 @@ const Login = () => {
                 placeholder="seuemail@dominio.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="bg-zinc-900 border-zinc-800 text-white"
+                className="bg-[#09131d] border-[#173146] text-white placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-[#2f7ea1] focus-visible:ring-offset-0"
                 autoComplete="email"
                 disabled={loading}
               />
@@ -182,7 +184,7 @@ const Login = () => {
                 placeholder="********"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="bg-zinc-900 border-zinc-800 text-white"
+                className="bg-[#09131d] border-[#173146] text-white placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-[#2f7ea1] focus-visible:ring-offset-0"
                 autoComplete="current-password"
                 disabled={loading}
               />

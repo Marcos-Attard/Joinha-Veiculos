@@ -50,6 +50,12 @@ const Vendedores = () => {
   const allowedRoles = ["lojista", "gerente", "admin", "adm", "administrador"];
   const isLojista = allowedRoles.includes(role);
 
+  const cardClass = "bg-[#0f1d2b] border-[#173146]";
+  const cardClassAlt = "bg-[#101f30] border-[#1b3145]";
+  const inputClass =
+    "bg-[#09131d] border-[#173146] text-white placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-[#2f7ea1] focus-visible:ring-offset-0";
+  const hoverBlue = "hover:bg-[#13283b]";
+
   useEffect(() => {
     if (!isAuthenticated) {
       navigate("/login", { replace: true });
@@ -170,7 +176,9 @@ const Vendedores = () => {
     }
 
     if (senhaTemporaria.length < 6) {
-      showError("A senha temporária do vendedor deve ter pelo menos 6 caracteres.");
+      showError(
+        "A senha temporária do vendedor deve ter pelo menos 6 caracteres."
+      );
       return;
     }
 
@@ -240,7 +248,7 @@ const Vendedores = () => {
           <Button
             onClick={carregarVendedores}
             variant="outline"
-            className="border-zinc-700 bg-transparent text-white hover:bg-zinc-900 hover:text-white"
+            className="border-[#173146] bg-transparent text-white hover:bg-[#13283b] hover:text-white"
             disabled={loading}
           >
             <RefreshCcw size={16} className="mr-2" />
@@ -249,7 +257,7 @@ const Vendedores = () => {
 
           <Button
             onClick={() => navigate("/dashboard")}
-            className="border border-zinc-700 bg-zinc-900 text-white hover:bg-zinc-800 hover:text-white"
+            className="border border-[#173146] bg-[#0b1623] text-white hover:bg-[#13283b] hover:text-white"
           >
             <ArrowLeft size={16} className="mr-2" />
             Voltar
@@ -258,7 +266,7 @@ const Vendedores = () => {
       </div>
 
       {cadastroAberto && (
-        <Card className="bg-[#101010] border-[#d4af37]/40 rounded-2xl">
+        <Card className={`${cardClass} rounded-2xl`}>
           <CardContent className="p-6 md:p-8 space-y-6">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -273,7 +281,7 @@ const Vendedores = () => {
               <Button
                 onClick={fecharCadastro}
                 variant="outline"
-                className="border-zinc-700 bg-transparent text-white hover:bg-zinc-900 hover:text-white"
+                className="border-[#173146] bg-transparent text-white hover:bg-[#13283b] hover:text-white"
                 disabled={cadastrandoVendedor}
               >
                 <X size={16} className="mr-2" />
@@ -291,7 +299,7 @@ const Vendedores = () => {
                     value={novoVendedorNome}
                     onChange={(e) => setNovoVendedorNome(e.target.value)}
                     placeholder="Nome do vendedor"
-                    className="bg-zinc-900 border-zinc-800 text-white"
+                    className={inputClass}
                     disabled={cadastrandoVendedor}
                   />
                 </div>
@@ -309,7 +317,7 @@ const Vendedores = () => {
                     }
                     placeholder="11999999999"
                     inputMode="numeric"
-                    className="bg-zinc-900 border-zinc-800 text-white"
+                    className={inputClass}
                     disabled={cadastrandoVendedor}
                   />
                 </div>
@@ -323,7 +331,7 @@ const Vendedores = () => {
                     value={novoVendedorEmail}
                     onChange={(e) => setNovoVendedorEmail(e.target.value)}
                     placeholder="vendedor@email.com"
-                    className="bg-zinc-900 border-zinc-800 text-white"
+                    className={inputClass}
                     disabled={cadastrandoVendedor}
                   />
                 </div>
@@ -337,7 +345,7 @@ const Vendedores = () => {
                     value={novaSenhaVendedor}
                     onChange={(e) => setNovaSenhaVendedor(e.target.value)}
                     placeholder="mínimo 6 caracteres"
-                    className="bg-zinc-900 border-zinc-800 text-white"
+                    className={inputClass}
                     disabled={cadastrandoVendedor}
                   />
                 </div>
@@ -351,7 +359,7 @@ const Vendedores = () => {
                     onChange={(e) =>
                       setNovoVendedorAtivo(e.target.value === "true")
                     }
-                    className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-900 px-3 text-white"
+                    className="w-full h-10 rounded-md border border-[#173146] bg-[#09131d] px-3 text-white outline-none focus:ring-1 focus:ring-[#2f7ea1]"
                     disabled={cadastrandoVendedor}
                   >
                     <option value="false">Inativo</option>
@@ -360,7 +368,7 @@ const Vendedores = () => {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-zinc-800 bg-black p-4 text-sm text-zinc-400">
+              <div className="rounded-xl border border-[#173146] bg-[#07111b]/70 p-4 text-sm text-zinc-400">
                 Se estiver inativo, o vendedor não acessa o app e não entra no rodízio.
               </div>
 
@@ -381,7 +389,7 @@ const Vendedores = () => {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-black border-zinc-800 rounded-2xl">
+        <Card className={`${cardClass} rounded-2xl`}>
           <CardContent className="p-5 min-h-[120px] flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <span className="text-zinc-500 text-sm font-black uppercase tracking-widest">
@@ -395,7 +403,7 @@ const Vendedores = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-black border-zinc-800 rounded-2xl">
+        <Card className={`${cardClass} rounded-2xl`}>
           <CardContent className="p-5 min-h-[120px] flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <span className="text-zinc-500 text-sm font-black uppercase tracking-widest">
@@ -409,7 +417,7 @@ const Vendedores = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-black border-zinc-800 rounded-2xl">
+        <Card className={`${cardClass} rounded-2xl`}>
           <CardContent className="p-5 min-h-[120px] flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <span className="text-zinc-500 text-sm font-black uppercase tracking-widest">
@@ -425,13 +433,13 @@ const Vendedores = () => {
       </div>
 
       {loading ? (
-        <Card className="bg-[#101010] border-zinc-800 rounded-2xl">
+        <Card className={`${cardClass} rounded-2xl`}>
           <CardContent className="p-6 text-zinc-400">
             Carregando vendedores...
           </CardContent>
         </Card>
       ) : vendedores.length === 0 ? (
-        <Card className="bg-[#101010] border-zinc-800 rounded-2xl">
+        <Card className={`${cardClass} rounded-2xl`}>
           <CardContent className="p-6 text-zinc-400">
             Nenhum vendedor encontrado.
           </CardContent>
@@ -444,7 +452,7 @@ const Vendedores = () => {
             return (
               <Card
                 key={vendedor.id}
-                className="bg-[#101010] border-zinc-800 rounded-2xl"
+                className={`${cardClassAlt} rounded-2xl`}
               >
                 <CardContent className="p-6 md:p-8">
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
@@ -516,7 +524,7 @@ const Vendedores = () => {
                             )
                           }
                           disabled={estaProcessando}
-                          className="bg-zinc-800 hover:bg-zinc-700 text-white font-black"
+                          className="bg-[#13283b] hover:bg-[#2f7ea1] text-white font-black"
                         >
                           {estaProcessando ? "Processando..." : "Desativar"}
                         </Button>

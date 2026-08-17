@@ -38,7 +38,8 @@ const needsPasswordChange = () => {
   const role = String(localStorage.getItem("auth_role") || "")
     .trim()
     .toLowerCase();
-  return force && (role === "vendedor" || role === "gerente");
+
+  return force && (role === "lojista" || role === "vendedor" || role === "gerente");
 };
 
 const RequireAuth = ({ children }: { children: JSX.Element }) => {

@@ -42,6 +42,13 @@ const Index = () => {
   const [pushAtivo, setPushAtivo] = useState(false);
   const [verificandoPush, setVerificandoPush] = useState(true);
 
+  // Paleta azul do app
+  const cardClass = "bg-[#0f1d2b] border-[#1b3145]";
+  const cardAltClass = "bg-[#101f30] border-[#1b3145]";
+  const panelClass = "bg-[#0b1623] border-[#173146]";
+  const imageAreaClass = "bg-[#07111b]";
+  const hoverBlue = "hover:bg-[#13283b]";
+
   useEffect(() => {
     const isAuthenticated = localStorage.getItem("is_authenticated") === "true";
 
@@ -257,10 +264,7 @@ const Index = () => {
 
           let estado = await lerEstadoPush(OneSignal);
 
-          if (
-            forcarPermissao &&
-            estado.permissao !== "granted"
-          ) {
+          if (forcarPermissao && estado.permissao !== "granted") {
             setPushStatus("Solicitando permissão de notificações...");
 
             if (OneSignal?.Notifications?.requestPermission) {
@@ -374,7 +378,7 @@ const Index = () => {
       </div>
 
       {isVendedor && (
-        <Card className="bg-[#101010] border-zinc-800 rounded-2xl">
+        <Card className={`${panelClass} rounded-2xl`}>
           <CardContent className="p-6 md:p-8 flex flex-col gap-4">
             <h2 className="text-2xl font-black text-white flex items-center gap-2">
               <Bell size={22} />
@@ -415,7 +419,7 @@ const Index = () => {
       {isLojista && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
-            <Card className="bg-black border-zinc-800 rounded-2xl">
+            <Card className={`${cardClass} rounded-2xl`}>
               <CardContent className="p-5 min-h-[140px] flex flex-col justify-between">
                 <div className="flex items-start justify-between">
                   <span className="text-zinc-500 text-sm font-black uppercase tracking-widest">
@@ -429,7 +433,7 @@ const Index = () => {
               </CardContent>
             </Card>
 
-            <Card className="bg-black border-zinc-800 rounded-2xl">
+            <Card className={`${cardClass} rounded-2xl`}>
               <CardContent className="p-5 min-h-[140px] flex flex-col justify-between">
                 <div className="flex items-start justify-between">
                   <span className="text-zinc-500 text-sm font-black uppercase tracking-widest">
@@ -443,7 +447,7 @@ const Index = () => {
               </CardContent>
             </Card>
 
-            <Card className="bg-black border-zinc-800 rounded-2xl">
+            <Card className={`${cardClass} rounded-2xl`}>
               <CardContent className="p-5 min-h-[140px] flex flex-col justify-between">
                 <div className="flex items-start justify-between">
                   <span className="text-zinc-500 text-sm font-black uppercase tracking-widest">
@@ -457,7 +461,7 @@ const Index = () => {
               </CardContent>
             </Card>
 
-            <Card className="bg-black border-zinc-800 rounded-2xl">
+            <Card className={`${cardClass} rounded-2xl`}>
               <CardContent className="p-5 min-h-[140px] flex flex-col justify-between">
                 <div className="flex items-start justify-between">
                   <span className="text-zinc-500 text-sm font-black uppercase tracking-widest">
@@ -471,7 +475,7 @@ const Index = () => {
               </CardContent>
             </Card>
 
-            <Card className="bg-black border-zinc-800 rounded-2xl">
+            <Card className={`${cardClass} rounded-2xl`}>
               <CardContent className="p-5 min-h-[140px] flex flex-col justify-between">
                 <div className="flex items-start justify-between">
                   <span className="text-zinc-500 text-sm font-black uppercase tracking-widest">
@@ -492,7 +496,7 @@ const Index = () => {
             </Card>
 
             {canManageGerentes && (
-              <Card className="bg-black border-zinc-800 rounded-2xl">
+              <Card className={`${cardClass} rounded-2xl`}>
                 <CardContent className="p-5 min-h-[140px] flex flex-col justify-between">
                   <div className="flex items-start justify-between">
                     <span className="text-zinc-500 text-sm font-black uppercase tracking-widest">
@@ -515,7 +519,7 @@ const Index = () => {
           </div>
 
           <div className="space-y-4">
-            <Card className="bg-[#101010] border-zinc-800 rounded-2xl">
+            <Card className={`${cardAltClass} rounded-2xl`}>
               <CardContent className="p-6 md:p-8 flex flex-col gap-4">
                 <h2 className="text-2xl font-black text-white">
                   Consultar Estoque
@@ -526,14 +530,14 @@ const Index = () => {
                 </p>
                 <Button
                   onClick={goToStock}
-                  className="w-fit bg-transparent hover:bg-zinc-900 text-[#d4af37] font-black px-0"
+                  className={`w-fit bg-transparent ${hoverBlue} text-[#d4af37] font-black px-0`}
                 >
                   Ir para Estoque <ArrowRight size={18} className="ml-2" />
                 </Button>
               </CardContent>
             </Card>
 
-            <Card className="bg-[#101010] border-zinc-800 rounded-2xl">
+            <Card className={`${cardAltClass} rounded-2xl`}>
               <CardContent className="p-6 md:p-8 flex flex-col gap-4">
                 <h2 className="text-2xl font-black text-white">Vendedores</h2>
                 <p className="text-zinc-400">
@@ -542,7 +546,7 @@ const Index = () => {
                 </p>
                 <Button
                   onClick={goToVendedores}
-                  className="w-fit bg-transparent hover:bg-zinc-900 text-[#d4af37] font-black px-0"
+                  className={`w-fit bg-transparent ${hoverBlue} text-[#d4af37] font-black px-0`}
                 >
                   Gerenciar vendedores <ArrowRight size={18} className="ml-2" />
                 </Button>
@@ -550,7 +554,7 @@ const Index = () => {
             </Card>
 
             {canManageGerentes && (
-              <Card className="bg-[#101010] border-zinc-800 rounded-2xl">
+              <Card className={`${cardAltClass} rounded-2xl`}>
                 <CardContent className="p-6 md:p-8 flex flex-col gap-4">
                   <h2 className="text-2xl font-black text-white">Gerentes</h2>
                   <p className="text-zinc-400">
@@ -561,7 +565,7 @@ const Index = () => {
                   </div>
                   <Button
                     onClick={goToGerentes}
-                    className="w-fit bg-transparent hover:bg-zinc-900 text-[#d4af37] font-black px-0"
+                    className={`w-fit bg-transparent ${hoverBlue} text-[#d4af37] font-black px-0`}
                   >
                     Gerenciar gerentes <ArrowRight size={18} className="ml-2" />
                   </Button>
@@ -569,7 +573,7 @@ const Index = () => {
               </Card>
             )}
 
-            <Card className="bg-[#101010] border-zinc-800 rounded-2xl">
+            <Card className={`${cardAltClass} rounded-2xl`}>
               <CardContent className="p-6 md:p-8 flex flex-col gap-4">
                 <h2 className="text-2xl font-black text-white">
                   Central de Leads
@@ -579,14 +583,14 @@ const Index = () => {
                 </p>
                 <Button
                   onClick={goToLeads}
-                  className="w-fit bg-transparent hover:bg-zinc-900 text-[#d4af37] font-black px-0"
+                  className={`w-fit bg-transparent ${hoverBlue} text-[#d4af37] font-black px-0`}
                 >
                   Ver todos os Leads <ArrowRight size={18} className="ml-2" />
                 </Button>
               </CardContent>
             </Card>
 
-            <Card className="bg-[#101010] border-zinc-800 rounded-2xl">
+            <Card className={`${cardAltClass} rounded-2xl`}>
               <CardContent className="p-6 md:p-8 flex flex-col gap-4">
                 <h2 className="text-2xl font-black text-white">
                   Integrações Bancárias
@@ -596,7 +600,7 @@ const Index = () => {
                 </p>
                 <Button
                   onClick={goToIntegrations}
-                  className="w-fit bg-transparent hover:bg-zinc-900 text-[#d4af37] font-black px-0"
+                  className={`w-fit bg-transparent ${hoverBlue} text-[#d4af37] font-black px-0`}
                 >
                   Ir para Integrações <ArrowRight size={18} className="ml-2" />
                 </Button>
@@ -608,7 +612,7 @@ const Index = () => {
 
       {isVendedor && (
         <div className="space-y-4">
-          <Card className="bg-[#101010] border-zinc-800 rounded-2xl">
+          <Card className={`${cardAltClass} rounded-2xl`}>
             <CardContent className="p-6 md:p-8 flex flex-col gap-4">
               <div className="flex items-start justify-between">
                 <h2 className="text-2xl font-black text-white">Leads</h2>
@@ -620,14 +624,14 @@ const Index = () => {
               <div className="text-4xl font-black text-white">{leadsCount}</div>
               <Button
                 onClick={goToLeads}
-                className="w-fit bg-transparent hover:bg-zinc-900 text-[#d4af37] font-black px-0"
+                className={`w-fit bg-transparent ${hoverBlue} text-[#d4af37] font-black px-0`}
               >
                 Abrir meus Leads <ArrowRight size={18} className="ml-2" />
               </Button>
             </CardContent>
           </Card>
 
-          <Card className="bg-[#101010] border-zinc-800 rounded-2xl">
+          <Card className={`${cardAltClass} rounded-2xl`}>
             <CardContent className="p-6 md:p-8 flex flex-col gap-4">
               <div className="flex items-start justify-between">
                 <h2 className="text-2xl font-black text-white">
@@ -641,7 +645,7 @@ const Index = () => {
               </p>
               <Button
                 onClick={goToBuscarVeiculo}
-                className="w-fit bg-transparent hover:bg-zinc-900 text-[#d4af37] font-black px-0"
+                className={`w-fit bg-transparent ${hoverBlue} text-[#d4af37] font-black px-0`}
               >
                 Buscar veículo <ArrowRight size={18} className="ml-2" />
               </Button>

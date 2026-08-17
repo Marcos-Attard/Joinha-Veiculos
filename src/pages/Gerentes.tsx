@@ -48,6 +48,12 @@ const Gerentes = () => {
   const allowedRoles = ["lojista", "admin", "adm", "administrador"];
   const canManageGerentes = allowedRoles.includes(role);
 
+  const cardClass = "bg-[#0f1d2b] border-[#173146]";
+  const cardClassAlt = "bg-[#101f30] border-[#1b3145]";
+  const inputClass =
+    "bg-[#09131d] border-[#173146] text-white placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-[#2f7ea1] focus-visible:ring-offset-0";
+  const hoverBlue = "hover:bg-[#13283b]";
+
   useEffect(() => {
     if (!isAuthenticated) {
       navigate("/login", { replace: true });
@@ -253,7 +259,7 @@ const Gerentes = () => {
           <Button
             onClick={carregarGerentes}
             variant="outline"
-            className="border-zinc-700 bg-transparent text-white hover:bg-zinc-900 hover:text-white"
+            className="border-[#173146] bg-transparent text-white hover:bg-[#13283b] hover:text-white"
             disabled={loading}
           >
             <RefreshCcw size={16} className="mr-2" />
@@ -262,7 +268,7 @@ const Gerentes = () => {
 
           <Button
             onClick={() => navigate("/dashboard")}
-            className="border border-zinc-700 bg-zinc-900 text-white hover:bg-zinc-800 hover:text-white"
+            className="border border-[#173146] bg-[#0b1623] text-white hover:bg-[#13283b] hover:text-white"
           >
             <ArrowLeft size={16} className="mr-2" />
             Voltar
@@ -271,7 +277,7 @@ const Gerentes = () => {
       </div>
 
       {cadastroAberto && (
-        <Card className="bg-[#101010] border-[#d4af37]/40 rounded-2xl">
+        <Card className={`${cardClass} rounded-2xl`}>
           <CardContent className="p-6 md:p-8 space-y-6">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -287,7 +293,7 @@ const Gerentes = () => {
               <Button
                 onClick={fecharCadastro}
                 variant="outline"
-                className="border-zinc-700 bg-transparent text-white hover:bg-zinc-900 hover:text-white"
+                className="border-[#173146] bg-transparent text-white hover:bg-[#13283b] hover:text-white"
                 disabled={cadastrandoGerente}
               >
                 <X size={16} className="mr-2" />
@@ -305,7 +311,7 @@ const Gerentes = () => {
                     value={novoGerenteNome}
                     onChange={(e) => setNovoGerenteNome(e.target.value)}
                     placeholder="Nome do gerente"
-                    className="bg-zinc-900 border-zinc-800 text-white"
+                    className={inputClass}
                     disabled={cadastrandoGerente}
                   />
                 </div>
@@ -319,7 +325,7 @@ const Gerentes = () => {
                     value={novoGerenteEmail}
                     onChange={(e) => setNovoGerenteEmail(e.target.value)}
                     placeholder="gerente@email.com"
-                    className="bg-zinc-900 border-zinc-800 text-white"
+                    className={inputClass}
                     disabled={cadastrandoGerente}
                   />
                 </div>
@@ -333,7 +339,7 @@ const Gerentes = () => {
                     value={novaSenhaGerente}
                     onChange={(e) => setNovaSenhaGerente(e.target.value)}
                     placeholder="mínimo 6 caracteres"
-                    className="bg-zinc-900 border-zinc-800 text-white"
+                    className={inputClass}
                     disabled={cadastrandoGerente}
                   />
                 </div>
@@ -347,7 +353,7 @@ const Gerentes = () => {
                     onChange={(e) =>
                       setStatusInicial(e.target.value as "Ativo" | "Inativo")
                     }
-                    className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-900 px-3 text-white"
+                    className="w-full h-10 rounded-md border border-[#173146] bg-[#09131d] px-3 text-white outline-none focus:ring-1 focus:ring-[#2f7ea1]"
                     disabled={cadastrandoGerente}
                   >
                     <option value="Ativo">Ativo</option>
@@ -356,7 +362,7 @@ const Gerentes = () => {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-zinc-800 bg-black p-4 text-sm text-zinc-400">
+              <div className="rounded-xl border border-[#173146] bg-[#07111b]/70 p-4 text-sm text-zinc-400">
                 O gerente terá acesso operacional administrativo, mas não
                 participa do rodízio.
               </div>
@@ -378,7 +384,7 @@ const Gerentes = () => {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-black border-zinc-800 rounded-2xl">
+        <Card className={`${cardClass} rounded-2xl`}>
           <CardContent className="p-5 min-h-[120px] flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <span className="text-zinc-500 text-sm font-black uppercase tracking-widest">
@@ -390,7 +396,7 @@ const Gerentes = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-black border-zinc-800 rounded-2xl">
+        <Card className={`${cardClass} rounded-2xl`}>
           <CardContent className="p-5 min-h-[120px] flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <span className="text-zinc-500 text-sm font-black uppercase tracking-widest">
@@ -404,7 +410,7 @@ const Gerentes = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-black border-zinc-800 rounded-2xl">
+        <Card className={`${cardClass} rounded-2xl`}>
           <CardContent className="p-5 min-h-[120px] flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <span className="text-zinc-500 text-sm font-black uppercase tracking-widest">
@@ -420,13 +426,13 @@ const Gerentes = () => {
       </div>
 
       {loading ? (
-        <Card className="bg-[#101010] border-zinc-800 rounded-2xl">
+        <Card className={`${cardClass} rounded-2xl`}>
           <CardContent className="p-6 text-zinc-400">
             Carregando gerentes...
           </CardContent>
         </Card>
       ) : gerentes.length === 0 ? (
-        <Card className="bg-[#101010] border-zinc-800 rounded-2xl">
+        <Card className={`${cardClass} rounded-2xl`}>
           <CardContent className="p-6 text-zinc-400">
             Nenhum gerente encontrado.
           </CardContent>
@@ -439,7 +445,7 @@ const Gerentes = () => {
             return (
               <Card
                 key={gerente.id}
-                className="bg-[#101010] border-zinc-800 rounded-2xl"
+                className={`${cardClassAlt} rounded-2xl`}
               >
                 <CardContent className="p-6 md:p-8">
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
@@ -492,7 +498,7 @@ const Gerentes = () => {
                             )
                           }
                           disabled={estaProcessando}
-                          className="bg-zinc-800 hover:bg-zinc-700 text-white font-black"
+                          className="bg-[#13283b] hover:bg-[#2f7ea1] text-white font-black"
                         >
                           {estaProcessando ? "Processando..." : "Desativar"}
                         </Button>

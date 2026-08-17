@@ -81,6 +81,7 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({
     <div className="fixed inset-0 z-50 bg-black overflow-y-auto">
       <div className="relative w-full max-w-lg mx-auto min-h-screen bg-black pb-10">
         <button
+          type="button"
           onClick={onClose}
           className="fixed top-6 right-6 z-[60] bg-black/60 p-2 rounded-full text-white backdrop-blur-md border border-white/10"
         >
@@ -99,6 +100,7 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({
               {imagens.length > 1 && (
                 <>
                   <button
+                    type="button"
                     onClick={irAnterior}
                     className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/60 border border-white/10 text-white p-3 rounded-full backdrop-blur-md"
                     aria-label="Foto anterior"
@@ -107,6 +109,7 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({
                   </button>
 
                   <button
+                    type="button"
                     onClick={irProxima}
                     className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/60 border border-white/10 text-white p-3 rounded-full backdrop-blur-md"
                     aria-label="Próxima foto"
@@ -133,6 +136,7 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({
             <div className="flex gap-2 overflow-x-auto pb-2">
               {imagens.map((img, index) => (
                 <button
+                  type="button"
                   key={`${img}-${index}`}
                   onClick={() => setCurrentImageIndex(index)}
                   className={cn(
@@ -264,6 +268,7 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({
           </div>
 
           <Button
+            type="button"
             onClick={onSimulate}
             className={cn(
               "w-full bg-[#FFD700] text-black font-black py-8 rounded-2xl text-lg uppercase shadow-2xl mt-4 leading-tight",

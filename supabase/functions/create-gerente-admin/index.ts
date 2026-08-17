@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
 
       createdAuthUserId = createdAuthData.user.id;
 
-      const { error: profileError } = await adminClient.from("profiles").insert({
+      const { error: profileError } = await adminClient.from("profiles_joinha").insert({
         id: createdAuthUserId,
         role: "gerente",
         vendedor_id: null,

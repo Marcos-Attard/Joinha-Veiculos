@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,6 +22,8 @@ import {
   Upload,
   Star,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
 import { cn } from "@/lib/utils";
@@ -102,6 +105,16 @@ type VehicleImageItem = {
   url: string;
   path: string | null;
 };
+
+type GalleryImage = {
+  url: string;
+  alt: string;
+};
+
+type GalleryModalState = {
+  images: GalleryImage[];
+  index: number;
+} | null;
 
 const emptyForm = (): FormState => ({
   external_id: "",
@@ -224,6 +237,8 @@ const Inventory = () => {
   const role = (localStorage.getItem("auth_role") || "").trim().toLowerCase();
   const isAuthenticated = localStorage.getItem("is_authenticated") === "true";
 
+  const [isClient, setIsClient] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -264,6 +279,8 @@ const Inventory = () => {
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
   const [uploadingImages, setUploadingImages] = useState(false);
 
+  const [galleryModal, setGalleryModal] = useState<GalleryModalState>(null);
+
   const [form, setForm] = useState<FormState>(emptyForm());
 
   const allowedRoles = [
@@ -277,6 +294,10 @@ const Inventory = () => {
 
   const canAccess = allowedRoles.includes(role);
   const canEditInventory = role !== "vendedor";
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -296,6 +317,45 @@ const Inventory = () => {
         block: "start",
       });
     }, 50);
+  };
+
+  const openGallery = (images: GalleryImage[], index = 0) => {
+    if (!images.length) return;
+
+    setGalleryModal({
+      images,
+      index,
+    });
+  };
+
+  const closeGallery = () => {
+    setGalleryModal(null);
+  };
+
+  const goToPrevImage = () => {
+    setGalleryModal((prev) => {
+      if (!prev || prev.images.length === 0) return prev;
+      const nextIndex =
+        prev.index === 0 ? prev.images.length - 1 : prev.index - 1;
+      return { ...prev, index: nextIndex };
+    });
+  };
+
+  const goToNextImage = () => {
+    setGalleryModal((prev) => {
+      if (!prev || prev.images.length === 0) return prev;
+      const nextIndex =
+        prev.index === prev.images.length - 1 ? 0 : prev.index + 1;
+      return { ...prev, index: nextIndex };
+    });
+  };
+
+  const goToImage = (index: number) => {
+    setGalleryModal((prev) => {
+      if (!prev) return prev;
+      if (index < 0 || index >= prev.images.length) return prev;
+      return { ...prev, index };
+    });
   };
 
   const gerarProximoExternalId = (list: Vehicle[]) => {
@@ -613,6 +673,26 @@ const Inventory = () => {
     }
   }, [marcaBusca, modeloBusca, modelosDaMarcaFiltro]);
 
+  useEffect(() => {
+    if (!galleryModal) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleEscAndArrows = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeGallery();
+      if (event.key === "ArrowLeft") goToPrevImage();
+      if (event.key === "ArrowRight") goToNextImage();
+    };
+
+    window.addEventListener("keydown", handleEscAndArrows);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener("keydown", handleEscAndArrows);
+    };
+  }, [galleryModal]);
+
   const aplicarFiltros = () => {
     setFiltrosAplicados(true);
     setFilteredVehicles(filtrarVeiculos(vehicles));
@@ -722,21 +802,19 @@ const Inventory = () => {
     setForm((prev) => ({ ...prev, [campo]: value }));
   };
 
-  const getCategoriaAtual = () => {
-    return form.category.trim();
-  };
+  const getCategoriaAtual = () => form.category.trim();
 
   const normalizarValorCatalogo = (type: CatalogType, value: string) => {
     const clean = value.trim();
-
     if (type === "make") return clean.toUpperCase();
     if (type === "model") return clean.toLowerCase();
     if (type === "base_model") return clean.toLowerCase();
-
     return clean;
   };
 
-  const aplicarNovoAtributo = (campo: "fuel" | "gear" | "color" | "version") => {
+  const aplicarNovoAtributo = (
+    campo: "fuel" | "gear" | "color" | "version"
+  ) => {
     if (!canEditInventory) return;
 
     const value = novoAtributo[campo].trim();
@@ -815,9 +893,7 @@ const Inventory = () => {
       return sameCategory && sameMake && sameModel && sameBase;
     });
 
-    if (exists) {
-      return showError("Esse item já existe no catálogo.");
-    }
+    if (exists) return showError("Esse item já existe no catálogo.");
 
     try {
       setCatalogSaving(true);
@@ -883,7 +959,6 @@ const Inventory = () => {
       });
 
       await carregarCatalogo();
-
       showSuccess("Item criado no catálogo.");
     } catch (error: any) {
       console.error("Erro ao criar item do catálogo:", error);
@@ -928,22 +1003,14 @@ const Inventory = () => {
         const sameCategory =
           normalizeText(item.category || "") === normalizeText(category);
 
-        if (type === "category") {
-          return sameCategory;
-        }
+        if (type === "category") return sameCategory;
 
         const sameMake = normalizeText(item.make || "") === normalizeText(make);
-
-        if (type === "make") {
-          return sameCategory && sameMake;
-        }
+        if (type === "make") return sameCategory && sameMake;
 
         const sameModel =
           normalizeText(item.model || "") === normalizeText(model);
-
-        if (type === "model") {
-          return sameCategory && sameMake && sameModel;
-        }
+        if (type === "model") return sameCategory && sameMake && sameModel;
 
         const sameBase =
           normalizeText(item.base_model || "") === normalizeText(baseModel);
@@ -1004,7 +1071,6 @@ const Inventory = () => {
       }
 
       const { error: vehicleUpdateError } = await updateVehiclesQuery;
-
       if (vehicleUpdateError) throw vehicleUpdateError;
 
       setForm((prev) => {
@@ -1043,7 +1109,6 @@ const Inventory = () => {
       });
 
       await Promise.all([carregarCatalogo(), carregarVehicles()]);
-
       showSuccess("Item removido do catálogo e veículos relacionados desativados.");
     } catch (error: any) {
       console.error("Erro ao excluir item do catálogo:", error);
@@ -1426,1292 +1491,1465 @@ const Inventory = () => {
   const selectedPreviewImage =
     vehicleImages[previewImageIndex] || vehicleImages[0] || null;
 
+  const formGalleryImages = useMemo<GalleryImage[]>(
+    () =>
+      vehicleImages.map((img, index) => ({
+        url: img.url,
+        alt: `Foto do veículo ${index + 1}`,
+      })),
+    [vehicleImages]
+  );
+
+  const galleryCurrentImage = galleryModal?.images[galleryModal.index] || null;
+  const galleryHasManyImages = (galleryModal?.images.length || 0) > 1;
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">
-            Estoque
-          </h1>
-          <p className="text-slate-400 text-sm mt-2">
-            Gestão do estoque da Joinha. Ative, desative, cadastre ou altere
-            veículos conforme necessário.
-          </p>
-        </div>
+    <>
+      <div className="space-y-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-black text-white tracking-tight">
+              Estoque
+            </h1>
+            <p className="text-slate-400 text-sm mt-2">
+              Gestão do estoque da Joinha. Ative, desative, cadastre ou altere
+              veículos conforme necessário.
+            </p>
+          </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {canEditInventory && (
-            <Button
-              onClick={abrirCadastro}
-              className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-            >
-              <Plus size={16} className="mr-2" />
-              Cadastrar veículo
-            </Button>
-          )}
-
-          <Button
-            onClick={() => {
-              carregarVehicles();
-              carregarCatalogo();
-            }}
-            variant="outline"
-            className="border-[#27455a] bg-transparent text-white hover:bg-[#0b1d2a] hover:text-white"
-            disabled={loading}
-          >
-            <RefreshCcw size={16} className="mr-2" />
-            Recarregar lista
-          </Button>
-
-          <Button
-            onClick={() => navigate("/dashboard")}
-            className="border border-[#27455a] bg-[#0b1d2a] text-white hover:bg-[#12364a] hover:text-white"
-          >
-            <ArrowLeft size={16} className="mr-2" />
-            Voltar
-          </Button>
-        </div>
-      </div>
-
-      {cadastroAberto && canEditInventory && (
-        <div ref={formRef} className="scroll-mt-24">
-          <Card className="bg-[#0a1722] border-[#2aa7b8]/40 rounded-2xl">
-            <CardContent className="p-6 md:p-8 space-y-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-black text-white">{formTitle}</h2>
-                  <p className="text-slate-400 text-sm mt-2">
-                    {editingVehicle
-                      ? "Atualize os dados do veículo e ajuste o status no estoque."
-                      : "Cadastre um novo veículo e escolha se ele estará ativo ou inativo no estoque."}
-                  </p>
-                </div>
-
+          {!galleryModal && (
+            <div className="flex flex-wrap items-center gap-3">
+              {canEditInventory && (
                 <Button
-                  onClick={fecharCadastro}
-                  variant="outline"
-                  className="border-[#27455a] bg-transparent text-white hover:bg-[#0b1d2a] hover:text-white"
-                  disabled={saving || catalogSaving}
+                  onClick={abrirCadastro}
+                  className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                 >
-                  <X size={16} className="mr-2" />
-                  Fechar
+                  <Plus size={16} className="mr-2" />
+                  Cadastrar veículo
                 </Button>
-              </div>
+              )}
 
-              <form onSubmit={salvarVeiculo} className="space-y-5">
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Categoria
-                    </label>
+              <Button
+                onClick={() => {
+                  carregarVehicles();
+                  carregarCatalogo();
+                }}
+                variant="outline"
+                className="border-[#27455a] bg-transparent text-white hover:bg-[#0b1d2a] hover:text-white"
+                disabled={loading}
+              >
+                <RefreshCcw size={16} className="mr-2" />
+                Recarregar lista
+              </Button>
 
-                    <div className="flex gap-2">
-                      <select
-                        value={form.category}
-                        onChange={(e) => {
-                          const value = e.target.value;
+              <Button
+                onClick={() => navigate("/dashboard")}
+                className="border border-[#27455a] bg-[#0b1d2a] text-white hover:bg-[#12364a] hover:text-white"
+              >
+                <ArrowLeft size={16} className="mr-2" />
+                Voltar
+              </Button>
+            </div>
+          )}
+        </div>
 
-                          setForm((prev) => ({
-                            ...prev,
-                            category_mode: "existing",
-                            category: value,
-                            category_custom: value,
-                            make: "",
-                            model: "",
-                            base_model: "",
-                          }));
-                        }}
-                        className={selectClass}
-                        disabled={saving || catalogSaving}
-                      >
-                        <option value="">Selecione</option>
-                        {withCurrent(form.category, categorias).map((item) => (
-                          <option key={item} value={item}>
-                            {item}
-                          </option>
-                        ))}
-                      </select>
-
-                      <Button
-                        type="button"
-                        onClick={() => deletarItemCatalogo("category")}
-                        disabled={saving || catalogSaving || !form.category}
-                        variant="outline"
-                        className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
-                        title="Excluir categoria do catálogo"
-                      >
-                        <X size={16} />
-                      </Button>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Input
-                        value={novoCatalogo.category}
-                        onChange={(e) =>
-                          setNovoCatalogo((prev) => ({
-                            ...prev,
-                            category: e.target.value,
-                          }))
-                        }
-                        placeholder="Nova categoria"
-                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                        disabled={saving || catalogSaving}
-                      />
-
-                      <Button
-                        type="button"
-                        onClick={() => criarItemCatalogo("category")}
-                        disabled={saving || catalogSaving}
-                        className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                        title="Criar categoria"
-                      >
-                        <Plus size={16} />
-                      </Button>
-                    </div>
+        {cadastroAberto && canEditInventory && (
+          <div ref={formRef} className="scroll-mt-24">
+            <Card className="bg-[#0a1722] border-[#2aa7b8]/40 rounded-2xl">
+              <CardContent className="p-6 md:p-8 space-y-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-black text-white">{formTitle}</h2>
+                    <p className="text-slate-400 text-sm mt-2">
+                      {editingVehicle
+                        ? "Atualize os dados do veículo e ajuste o status no estoque."
+                        : "Cadastre um novo veículo e escolha se ele estará ativo ou inativo no estoque."}
+                    </p>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Marca
-                    </label>
+                  <Button
+                    onClick={fecharCadastro}
+                    variant="outline"
+                    className="border-[#27455a] bg-transparent text-white hover:bg-[#0b1d2a] hover:text-white"
+                    disabled={saving || catalogSaving}
+                  >
+                    <X size={16} className="mr-2" />
+                    Fechar
+                  </Button>
+                </div>
 
-                    <div className="flex gap-2">
-                      <select
-                        value={form.make}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setForm((prev) => ({
-                            ...prev,
-                            make: value,
-                            model: "",
-                            base_model: "",
-                          }));
-                        }}
-                        className={selectClass}
-                        disabled={saving || catalogSaving || !form.category}
-                      >
-                        <option value="">Selecione</option>
-                        {withCurrent(form.make, marcasDaCategoriaForm).map(
-                          (item) => (
+                <form onSubmit={salvarVeiculo} className="space-y-5">
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Categoria
+                      </label>
+
+                      <div className="flex gap-2">
+                        <select
+                          value={form.category}
+                          onChange={(e) => {
+                            const value = e.target.value;
+
+                            setForm((prev) => ({
+                              ...prev,
+                              category_mode: "existing",
+                              category: value,
+                              category_custom: value,
+                              make: "",
+                              model: "",
+                              base_model: "",
+                            }));
+                          }}
+                          className={selectClass}
+                          disabled={saving || catalogSaving}
+                        >
+                          <option value="">Selecione</option>
+                          {withCurrent(form.category, categorias).map((item) => (
                             <option key={item} value={item}>
                               {item}
                             </option>
-                          )
-                        )}
-                      </select>
+                          ))}
+                        </select>
 
-                      <Button
-                        type="button"
-                        onClick={() => deletarItemCatalogo("make")}
-                        disabled={saving || catalogSaving || !form.make}
-                        variant="outline"
-                        className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
-                        title="Excluir marca do catálogo"
-                      >
-                        <X size={16} />
-                      </Button>
-                    </div>
+                        <Button
+                          type="button"
+                          onClick={() => deletarItemCatalogo("category")}
+                          disabled={saving || catalogSaving || !form.category}
+                          variant="outline"
+                          className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
+                          title="Excluir categoria do catálogo"
+                        >
+                          <X size={16} />
+                        </Button>
+                      </div>
 
-                    <div className="flex gap-2">
-                      <Input
-                        value={novoCatalogo.make}
-                        onChange={(e) =>
-                          setNovoCatalogo((prev) => ({
-                            ...prev,
-                            make: e.target.value,
-                          }))
-                        }
-                        placeholder="Nova marca"
-                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                        disabled={saving || catalogSaving || !form.category}
-                      />
-
-                      <Button
-                        type="button"
-                        onClick={() => criarItemCatalogo("make")}
-                        disabled={saving || catalogSaving || !form.category}
-                        className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                        title="Criar marca"
-                      >
-                        <Plus size={16} />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Modelo
-                    </label>
-
-                    <div className="flex gap-2">
-                      <select
-                        value={form.model}
-                        onChange={(e) =>
-                          setForm((prev) => ({
-                            ...prev,
-                            model: e.target.value,
-                            base_model: "",
-                          }))
-                        }
-                        className={selectClass}
-                        disabled={
-                          saving || catalogSaving || !form.category || !form.make
-                        }
-                      >
-                        <option value="">Selecione</option>
-                        {withCurrent(
-                          form.model,
-                          modelosDaCategoriaEMarcaForm
-                        ).map((item) => (
-                          <option key={item} value={item}>
-                            {item}
-                          </option>
-                        ))}
-                      </select>
-
-                      <Button
-                        type="button"
-                        onClick={() => deletarItemCatalogo("model")}
-                        disabled={saving || catalogSaving || !form.model}
-                        variant="outline"
-                        className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
-                        title="Excluir modelo do catálogo"
-                      >
-                        <X size={16} />
-                      </Button>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Input
-                        value={novoCatalogo.model}
-                        onChange={(e) =>
-                          setNovoCatalogo((prev) => ({
-                            ...prev,
-                            model: e.target.value,
-                          }))
-                        }
-                        placeholder="Novo modelo"
-                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                        disabled={
-                          saving || catalogSaving || !form.category || !form.make
-                        }
-                      />
-
-                      <Button
-                        type="button"
-                        onClick={() => criarItemCatalogo("model")}
-                        disabled={
-                          saving || catalogSaving || !form.category || !form.make
-                        }
-                        className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                        title="Criar modelo"
-                      >
-                        <Plus size={16} />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Modelo base
-                    </label>
-
-                    <div className="flex gap-2">
-                      <select
-                        value={form.base_model}
-                        onChange={(e) =>
-                          atualizarCampo("base_model", e.target.value)
-                        }
-                        className={selectClass}
-                        disabled={
-                          saving ||
-                          catalogSaving ||
-                          !form.category ||
-                          !form.make ||
-                          !form.model
-                        }
-                      >
-                        <option value="">Selecione</option>
-                        {withCurrent(
-                          form.base_model,
-                          baseModelsDaCategoriaMarcaModeloForm
-                        ).map((item) => (
-                          <option key={item} value={item}>
-                            {item}
-                          </option>
-                        ))}
-                      </select>
-
-                      <Button
-                        type="button"
-                        onClick={() => deletarItemCatalogo("base_model")}
-                        disabled={saving || catalogSaving || !form.base_model}
-                        variant="outline"
-                        className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
-                        title="Excluir modelo base do catálogo"
-                      >
-                        <X size={16} />
-                      </Button>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Input
-                        value={novoCatalogo.base_model}
-                        onChange={(e) =>
-                          setNovoCatalogo((prev) => ({
-                            ...prev,
-                            base_model: e.target.value,
-                          }))
-                        }
-                        placeholder="Novo modelo base"
-                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                        disabled={
-                          saving ||
-                          catalogSaving ||
-                          !form.category ||
-                          !form.make ||
-                          !form.model
-                        }
-                      />
-
-                      <Button
-                        type="button"
-                        onClick={() => criarItemCatalogo("base_model")}
-                        disabled={
-                          saving ||
-                          catalogSaving ||
-                          !form.category ||
-                          !form.make ||
-                          !form.model
-                        }
-                        className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                        title="Criar modelo base"
-                      >
-                        <Plus size={16} />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Título limpo
-                    </label>
-                    <Input
-                      value={form.title_clean}
-                      onChange={(e) =>
-                        atualizarCampo("title_clean", e.target.value)
-                      }
-                      placeholder="HONDA CIVIC EXR"
-                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Ano referência
-                    </label>
-                    <Input
-                      value={form.year}
-                      onChange={(e) =>
-                        atualizarCampo("year", e.target.value.replace(/\D/g, ""))
-                      }
-                      placeholder="2016"
-                      inputMode="numeric"
-                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Ano fabricação
-                    </label>
-                    <Input
-                      value={form.fabric_year}
-                      onChange={(e) =>
-                        atualizarCampo(
-                          "fabric_year",
-                          e.target.value.replace(/\D/g, "")
-                        )
-                      }
-                      placeholder="2015"
-                      inputMode="numeric"
-                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Quilometragem
-                    </label>
-                    <Input
-                      value={form.mileage}
-                      onChange={(e) =>
-                        atualizarCampo("mileage", e.target.value.replace(/\D/g, ""))
-                      }
-                      placeholder="82000"
-                      inputMode="numeric"
-                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Combustível
-                    </label>
-
-                    <select
-                      value={form.fuel}
-                      onChange={(e) => atualizarCampo("fuel", e.target.value)}
-                      className={selectClass}
-                      disabled={saving}
-                    >
-                      <option value="">Selecione</option>
-                      {withCurrent(form.fuel, fuels).map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-
-                    <div className="flex gap-2">
-                      <Input
-                        value={novoAtributo.fuel}
-                        onChange={(e) =>
-                          setNovoAtributo((prev) => ({
-                            ...prev,
-                            fuel: e.target.value,
-                          }))
-                        }
-                        placeholder="Novo combustível"
-                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                        disabled={saving}
-                      />
-
-                      <Button
-                        type="button"
-                        onClick={() => aplicarNovoAtributo("fuel")}
-                        disabled={saving}
-                        className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                        title="Aplicar novo combustível"
-                      >
-                        <Plus size={16} />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Câmbio
-                    </label>
-
-                    <select
-                      value={form.gear}
-                      onChange={(e) => atualizarCampo("gear", e.target.value)}
-                      className={selectClass}
-                      disabled={saving}
-                    >
-                      <option value="">Selecione</option>
-                      {withCurrent(form.gear, gears).map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-
-                    <div className="flex gap-2">
-                      <Input
-                        value={novoAtributo.gear}
-                        onChange={(e) =>
-                          setNovoAtributo((prev) => ({
-                            ...prev,
-                            gear: e.target.value,
-                          }))
-                        }
-                        placeholder="Novo câmbio"
-                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                        disabled={saving}
-                      />
-
-                      <Button
-                        type="button"
-                        onClick={() => aplicarNovoAtributo("gear")}
-                        disabled={saving}
-                        className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                        title="Aplicar novo câmbio"
-                      >
-                        <Plus size={16} />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Motor
-                    </label>
-                    <Input
-                      value={form.motor}
-                      onChange={(e) => atualizarCampo("motor", e.target.value)}
-                      placeholder="2.0"
-                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Portas
-                    </label>
-                    <Input
-                      value={form.doors}
-                      onChange={(e) =>
-                        atualizarCampo("doors", e.target.value.replace(/\D/g, ""))
-                      }
-                      placeholder="4"
-                      inputMode="numeric"
-                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Cor
-                    </label>
-
-                    <select
-                      value={form.color}
-                      onChange={(e) => atualizarCampo("color", e.target.value)}
-                      className={selectClass}
-                      disabled={saving}
-                    >
-                      <option value="">Selecione</option>
-                      {withCurrent(form.color, colors).map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-
-                    <div className="flex gap-2">
-                      <Input
-                        value={novoAtributo.color}
-                        onChange={(e) =>
-                          setNovoAtributo((prev) => ({
-                            ...prev,
-                            color: e.target.value,
-                          }))
-                        }
-                        placeholder="Nova cor"
-                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                        disabled={saving}
-                      />
-
-                      <Button
-                        type="button"
-                        onClick={() => aplicarNovoAtributo("color")}
-                        disabled={saving}
-                        className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                        title="Aplicar nova cor"
-                      >
-                        <Plus size={16} />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Preço
-                    </label>
-                    <Input
-                      value={form.price}
-                      onChange={(e) =>
-                        atualizarCampo(
-                          "price",
-                          e.target.value.replace(/[^\d,.-]/g, "")
-                        )
-                      }
-                      placeholder="78900"
-                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Preço promocional
-                    </label>
-                    <Input
-                      value={form.promo_price}
-                      onChange={(e) =>
-                        atualizarCampo(
-                          "promo_price",
-                          e.target.value.replace(/[^\d,.-]/g, "")
-                        )
-                      }
-                      placeholder="Opcional"
-                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Placa
-                    </label>
-                    <Input
-                      value={form.plate}
-                      onChange={(e) =>
-                        atualizarCampo("plate", e.target.value.toUpperCase())
-                      }
-                      placeholder="FJR1A61"
-                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Final da placa
-                    </label>
-                    <Input
-                      value={form.plate_final}
-                      onChange={(e) =>
-                        atualizarCampo("plate_final", e.target.value)
-                      }
-                      placeholder="1"
-                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Versão
-                    </label>
-
-                    <select
-                      value={form.version}
-                      onChange={(e) => atualizarCampo("version", e.target.value)}
-                      className={selectClass}
-                      disabled={saving}
-                    >
-                      <option value="">Selecione</option>
-                      {withCurrent(form.version, versions).map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-
-                    <div className="flex gap-2">
-                      <Input
-                        value={novoAtributo.version}
-                        onChange={(e) =>
-                          setNovoAtributo((prev) => ({
-                            ...prev,
-                            version: e.target.value,
-                          }))
-                        }
-                        placeholder="Nova versão"
-                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                        disabled={saving}
-                      />
-
-                      <Button
-                        type="button"
-                        onClick={() => aplicarNovoAtributo("version")}
-                        disabled={saving}
-                        className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                        title="Aplicar nova versão"
-                      >
-                        <Plus size={16} />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 xl:col-span-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Imagens
-                    </label>
-
-                    <div className="rounded-2xl border border-[#1c3b4f] bg-[#07131f] p-4 space-y-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-white">
-                            Fotos do veículo
-                          </p>
-                          <p className="text-xs text-slate-400 mt-1">
-                            Máximo de 10 fotos. Clique para visualizar, use a
-                            estrela para definir a principal do card.
-                          </p>
-                        </div>
-
-                        <input
-                          ref={imageInputRef}
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          className="hidden"
-                          onChange={handleSelectImages}
+                      <div className="flex gap-2">
+                        <Input
+                          value={novoCatalogo.category}
+                          onChange={(e) =>
+                            setNovoCatalogo((prev) => ({
+                              ...prev,
+                              category: e.target.value,
+                            }))
+                          }
+                          placeholder="Nova categoria"
+                          className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                          disabled={saving || catalogSaving}
                         />
 
                         <Button
                           type="button"
-                          onClick={() => imageInputRef.current?.click()}
-                          disabled={
-                            saving ||
-                            catalogSaving ||
-                            uploadingImages ||
-                            vehicleImages.length >= 10
-                          }
+                          onClick={() => criarItemCatalogo("category")}
+                          disabled={saving || catalogSaving}
                           className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
+                          title="Criar categoria"
                         >
-                          <Upload size={16} className="mr-2" />
-                          {uploadingImages ? "Enviando..." : "Selecionar fotos"}
+                          <Plus size={16} />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Marca
+                      </label>
+
+                      <div className="flex gap-2">
+                        <select
+                          value={form.make}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setForm((prev) => ({
+                              ...prev,
+                              make: value,
+                              model: "",
+                              base_model: "",
+                            }));
+                          }}
+                          className={selectClass}
+                          disabled={saving || catalogSaving || !form.category}
+                        >
+                          <option value="">Selecione</option>
+                          {withCurrent(form.make, marcasDaCategoriaForm).map(
+                            (item) => (
+                              <option key={item} value={item}>
+                                {item}
+                              </option>
+                            )
+                          )}
+                        </select>
+
+                        <Button
+                          type="button"
+                          onClick={() => deletarItemCatalogo("make")}
+                          disabled={saving || catalogSaving || !form.make}
+                          variant="outline"
+                          className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
+                          title="Excluir marca do catálogo"
+                        >
+                          <X size={16} />
                         </Button>
                       </div>
 
-                      {vehicleImages.length > 0 ? (
-                        <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_1fr] gap-4">
-                          <div className="space-y-2">
-                            <p className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                              Foto principal do card
-                            </p>
+                      <div className="flex gap-2">
+                        <Input
+                          value={novoCatalogo.make}
+                          onChange={(e) =>
+                            setNovoCatalogo((prev) => ({
+                              ...prev,
+                              make: e.target.value,
+                            }))
+                          }
+                          placeholder="Nova marca"
+                          className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                          disabled={saving || catalogSaving || !form.category}
+                        />
 
-                            <div className="relative overflow-hidden rounded-2xl border border-[#1c3b4f] bg-[#081521]">
-                              <img
-                                src={vehicleImages[0].url}
-                                alt="Foto principal do veículo"
-                                className="w-full h-[260px] object-cover object-center"
-                              />
-                              <div className="absolute top-3 left-3 rounded-full bg-[#0f2c3d]/80 px-3 py-1 text-xs font-bold text-white border border-[#27566f]">
-                                Principal
-                              </div>
-                            </div>
+                        <Button
+                          type="button"
+                          onClick={() => criarItemCatalogo("make")}
+                          disabled={saving || catalogSaving || !form.category}
+                          className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
+                          title="Criar marca"
+                        >
+                          <Plus size={16} />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Modelo
+                      </label>
+
+                      <div className="flex gap-2">
+                        <select
+                          value={form.model}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              model: e.target.value,
+                              base_model: "",
+                            }))
+                          }
+                          className={selectClass}
+                          disabled={
+                            saving || catalogSaving || !form.category || !form.make
+                          }
+                        >
+                          <option value="">Selecione</option>
+                          {withCurrent(
+                            form.model,
+                            modelosDaCategoriaEMarcaForm
+                          ).map((item) => (
+                            <option key={item} value={item}>
+                              {item}
+                            </option>
+                          ))}
+                        </select>
+
+                        <Button
+                          type="button"
+                          onClick={() => deletarItemCatalogo("model")}
+                          disabled={saving || catalogSaving || !form.model}
+                          variant="outline"
+                          className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
+                          title="Excluir modelo do catálogo"
+                        >
+                          <X size={16} />
+                        </Button>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Input
+                          value={novoCatalogo.model}
+                          onChange={(e) =>
+                            setNovoCatalogo((prev) => ({
+                              ...prev,
+                              model: e.target.value,
+                            }))
+                          }
+                          placeholder="Novo modelo"
+                          className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                          disabled={
+                            saving || catalogSaving || !form.category || !form.make
+                          }
+                        />
+
+                        <Button
+                          type="button"
+                          onClick={() => criarItemCatalogo("model")}
+                          disabled={
+                            saving || catalogSaving || !form.category || !form.make
+                          }
+                          className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
+                          title="Criar modelo"
+                        >
+                          <Plus size={16} />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Modelo base
+                      </label>
+
+                      <div className="flex gap-2">
+                        <select
+                          value={form.base_model}
+                          onChange={(e) =>
+                            atualizarCampo("base_model", e.target.value)
+                          }
+                          className={selectClass}
+                          disabled={
+                            saving ||
+                            catalogSaving ||
+                            !form.category ||
+                            !form.make ||
+                            !form.model
+                          }
+                        >
+                          <option value="">Selecione</option>
+                          {withCurrent(
+                            form.base_model,
+                            baseModelsDaCategoriaMarcaModeloForm
+                          ).map((item) => (
+                            <option key={item} value={item}>
+                              {item}
+                            </option>
+                          ))}
+                        </select>
+
+                        <Button
+                          type="button"
+                          onClick={() => deletarItemCatalogo("base_model")}
+                          disabled={saving || catalogSaving || !form.base_model}
+                          variant="outline"
+                          className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
+                          title="Excluir modelo base do catálogo"
+                        >
+                          <X size={16} />
+                        </Button>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Input
+                          value={novoCatalogo.base_model}
+                          onChange={(e) =>
+                            setNovoCatalogo((prev) => ({
+                              ...prev,
+                              base_model: e.target.value,
+                            }))
+                          }
+                          placeholder="Novo modelo base"
+                          className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                          disabled={
+                            saving ||
+                            catalogSaving ||
+                            !form.category ||
+                            !form.make ||
+                            !form.model
+                          }
+                        />
+
+                        <Button
+                          type="button"
+                          onClick={() => criarItemCatalogo("base_model")}
+                          disabled={
+                            saving ||
+                            catalogSaving ||
+                            !form.category ||
+                            !form.make ||
+                            !form.model
+                          }
+                          className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
+                          title="Criar modelo base"
+                        >
+                          <Plus size={16} />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Título limpo
+                      </label>
+                      <Input
+                        value={form.title_clean}
+                        onChange={(e) =>
+                          atualizarCampo("title_clean", e.target.value)
+                        }
+                        placeholder="HONDA CIVIC EXR"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Ano referência
+                      </label>
+                      <Input
+                        value={form.year}
+                        onChange={(e) =>
+                          atualizarCampo("year", e.target.value.replace(/\D/g, ""))
+                        }
+                        placeholder="2016"
+                        inputMode="numeric"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Ano fabricação
+                      </label>
+                      <Input
+                        value={form.fabric_year}
+                        onChange={(e) =>
+                          atualizarCampo(
+                            "fabric_year",
+                            e.target.value.replace(/\D/g, "")
+                          )
+                        }
+                        placeholder="2015"
+                        inputMode="numeric"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Quilometragem
+                      </label>
+                      <Input
+                        value={form.mileage}
+                        onChange={(e) =>
+                          atualizarCampo("mileage", e.target.value.replace(/\D/g, ""))
+                        }
+                        placeholder="82000"
+                        inputMode="numeric"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Combustível
+                      </label>
+
+                      <select
+                        value={form.fuel}
+                        onChange={(e) => atualizarCampo("fuel", e.target.value)}
+                        className={selectClass}
+                        disabled={saving}
+                      >
+                        <option value="">Selecione</option>
+                        {withCurrent(form.fuel, fuels).map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </select>
+
+                      <div className="flex gap-2">
+                        <Input
+                          value={novoAtributo.fuel}
+                          onChange={(e) =>
+                            setNovoAtributo((prev) => ({
+                              ...prev,
+                              fuel: e.target.value,
+                            }))
+                          }
+                          placeholder="Novo combustível"
+                          className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                          disabled={saving}
+                        />
+
+                        <Button
+                          type="button"
+                          onClick={() => aplicarNovoAtributo("fuel")}
+                          disabled={saving}
+                          className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
+                          title="Aplicar novo combustível"
+                        >
+                          <Plus size={16} />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Câmbio
+                      </label>
+
+                      <select
+                        value={form.gear}
+                        onChange={(e) => atualizarCampo("gear", e.target.value)}
+                        className={selectClass}
+                        disabled={saving}
+                      >
+                        <option value="">Selecione</option>
+                        {withCurrent(form.gear, gears).map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </select>
+
+                      <div className="flex gap-2">
+                        <Input
+                          value={novoAtributo.gear}
+                          onChange={(e) =>
+                            setNovoAtributo((prev) => ({
+                              ...prev,
+                              gear: e.target.value,
+                            }))
+                          }
+                          placeholder="Novo câmbio"
+                          className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                          disabled={saving}
+                        />
+
+                        <Button
+                          type="button"
+                          onClick={() => aplicarNovoAtributo("gear")}
+                          disabled={saving}
+                          className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
+                          title="Aplicar novo câmbio"
+                        >
+                          <Plus size={16} />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Motor
+                      </label>
+                      <Input
+                        value={form.motor}
+                        onChange={(e) => atualizarCampo("motor", e.target.value)}
+                        placeholder="2.0"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Portas
+                      </label>
+                      <Input
+                        value={form.doors}
+                        onChange={(e) =>
+                          atualizarCampo("doors", e.target.value.replace(/\D/g, ""))
+                        }
+                        placeholder="4"
+                        inputMode="numeric"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Cor
+                      </label>
+
+                      <select
+                        value={form.color}
+                        onChange={(e) => atualizarCampo("color", e.target.value)}
+                        className={selectClass}
+                        disabled={saving}
+                      >
+                        <option value="">Selecione</option>
+                        {withCurrent(form.color, colors).map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </select>
+
+                      <div className="flex gap-2">
+                        <Input
+                          value={novoAtributo.color}
+                          onChange={(e) =>
+                            setNovoAtributo((prev) => ({
+                              ...prev,
+                              color: e.target.value,
+                            }))
+                          }
+                          placeholder="Nova cor"
+                          className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                          disabled={saving}
+                        />
+
+                        <Button
+                          type="button"
+                          onClick={() => aplicarNovoAtributo("color")}
+                          disabled={saving}
+                          className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
+                          title="Aplicar nova cor"
+                        >
+                          <Plus size={16} />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Preço
+                      </label>
+                      <Input
+                        value={form.price}
+                        onChange={(e) =>
+                          atualizarCampo(
+                            "price",
+                            e.target.value.replace(/[^\d,.-]/g, "")
+                          )
+                        }
+                        placeholder="78900"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Preço promocional
+                      </label>
+                      <Input
+                        value={form.promo_price}
+                        onChange={(e) =>
+                          atualizarCampo(
+                            "promo_price",
+                            e.target.value.replace(/[^\d,.-]/g, "")
+                          )
+                        }
+                        placeholder="Opcional"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Placa
+                      </label>
+                      <Input
+                        value={form.plate}
+                        onChange={(e) =>
+                          atualizarCampo("plate", e.target.value.toUpperCase())
+                        }
+                        placeholder="FJR1A61"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Final da placa
+                      </label>
+                      <Input
+                        value={form.plate_final}
+                        onChange={(e) =>
+                          atualizarCampo("plate_final", e.target.value)
+                        }
+                        placeholder="1"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Versão
+                      </label>
+
+                      <select
+                        value={form.version}
+                        onChange={(e) => atualizarCampo("version", e.target.value)}
+                        className={selectClass}
+                        disabled={saving}
+                      >
+                        <option value="">Selecione</option>
+                        {withCurrent(form.version, versions).map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </select>
+
+                      <div className="flex gap-2">
+                        <Input
+                          value={novoAtributo.version}
+                          onChange={(e) =>
+                            setNovoAtributo((prev) => ({
+                              ...prev,
+                              version: e.target.value,
+                            }))
+                          }
+                          placeholder="Nova versão"
+                          className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                          disabled={saving}
+                        />
+
+                        <Button
+                          type="button"
+                          onClick={() => aplicarNovoAtributo("version")}
+                          disabled={saving}
+                          className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
+                          title="Aplicar nova versão"
+                        >
+                          <Plus size={16} />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 xl:col-span-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Imagens
+                      </label>
+
+                      <div className="rounded-2xl border border-[#1c3b4f] bg-[#07131f] p-4 space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-white">
+                              Fotos do veículo
+                            </p>
+                            <p className="text-xs text-slate-400 mt-1">
+                              Máximo de 10 fotos. Clique para visualizar, use a
+                              estrela para definir a principal do card.
+                            </p>
                           </div>
 
-                          <div className="space-y-2">
-                            <p className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                              Miniaturas
-                            </p>
+                          <input
+                            ref={imageInputRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={handleSelectImages}
+                          />
 
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                              {vehicleImages.map((img, index) => {
-                                const isMain = index === 0;
-                                const isPreview = index === previewImageIndex;
+                          <Button
+                            type="button"
+                            onClick={() => imageInputRef.current?.click()}
+                            disabled={
+                              saving ||
+                              catalogSaving ||
+                              uploadingImages ||
+                              vehicleImages.length >= 10
+                            }
+                            className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
+                          >
+                            <Upload size={16} className="mr-2" />
+                            {uploadingImages ? "Enviando..." : "Selecionar fotos"}
+                          </Button>
+                        </div>
 
-                                return (
-                                  <div
-                                    key={`${img.url}-${index}`}
-                                    className={cn(
-                                      "relative overflow-hidden rounded-xl border bg-[#081521]",
-                                      isMain
-                                        ? "border-[#2aa7b8]"
-                                        : isPreview
-                                        ? "border-sky-500"
-                                        : "border-[#1c3b4f]"
-                                    )}
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={() => handlePreviewImage(index)}
-                                      className="block w-full"
-                                      title="Visualizar"
-                                    >
-                                      <img
-                                        src={img.url}
-                                        alt={`Miniatura ${index + 1}`}
-                                        className="w-full h-[92px] object-cover object-center"
-                                      />
-                                    </button>
+                        {vehicleImages.length > 0 ? (
+                          <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_1fr] gap-4">
+                            <div className="space-y-2">
+                              <p className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                                Foto principal do card
+                              </p>
 
-                                    <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-2">
-                                      {isMain ? (
-                                        <span className="rounded-full bg-[#2aa7b8] px-2 py-1 text-[10px] font-black text-white">
-                                          PRINCIPAL
-                                        </span>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleSetMainImage(index)}
-                                          className="rounded-full bg-[#0f2c3d]/80 p-1.5 text-white border border-[#27566f] hover:bg-[#12364a]"
-                                          title="Definir como principal do card"
-                                        >
-                                          <Star size={12} />
-                                        </button>
-                                      )}
-
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveImage(index)}
-                                        className="rounded-full bg-[#0f2c3d]/80 p-1.5 text-red-300 border border-[#27566f] hover:bg-[#12364a]"
-                                        title="Remover foto"
-                                      >
-                                        <Trash2 size={12} />
-                                      </button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-
-                            {selectedPreviewImage && (
-                              <div className="space-y-2 pt-2">
-                                <p className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                                  Visualização selecionada
-                                </p>
-                                <div className="relative overflow-hidden rounded-2xl border border-[#1c3b4f] bg-[#081521]">
+                              <div className="relative overflow-hidden rounded-2xl border border-[#1c3b4f] bg-[#081521]">
+                                <button
+                                  type="button"
+                                  onClick={() => openGallery(formGalleryImages, 0)}
+                                  className="block w-full"
+                                  title="Abrir galeria"
+                                >
                                   <img
-                                    src={selectedPreviewImage.url}
-                                    alt="Visualização selecionada"
-                                    className="w-full h-[220px] object-cover object-center"
+                                    src={vehicleImages[0].url}
+                                    alt="Foto principal do veículo"
+                                    className="w-full h-[260px] object-cover object-center cursor-zoom-in"
                                   />
+                                </button>
+
+                                <div className="absolute top-3 left-3 rounded-full bg-[#0f2c3d]/80 px-3 py-1 text-xs font-bold text-white border border-[#27566f]">
+                                  Principal
                                 </div>
                               </div>
-                            )}
+                            </div>
+
+                            <div className="space-y-2">
+                              <p className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                                Miniaturas
+                              </p>
+
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                {vehicleImages.map((img, index) => {
+                                  const isMain = index === 0;
+                                  const isPreview = index === previewImageIndex;
+
+                                  return (
+                                    <div
+                                      key={`${img.url}-${index}`}
+                                      className={cn(
+                                        "relative overflow-hidden rounded-xl border bg-[#081521]",
+                                        isMain
+                                          ? "border-[#2aa7b8]"
+                                          : isPreview
+                                          ? "border-sky-500"
+                                          : "border-[#1c3b4f]"
+                                      )}
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          handlePreviewImage(index);
+                                          openGallery(formGalleryImages, index);
+                                        }}
+                                        className="block w-full"
+                                        title="Abrir galeria"
+                                      >
+                                        <img
+                                          src={img.url}
+                                          alt={`Miniatura ${index + 1}`}
+                                          className="w-full h-[92px] object-cover object-center cursor-zoom-in"
+                                        />
+                                      </button>
+
+                                      <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-2">
+                                        {isMain ? (
+                                          <span className="rounded-full bg-[#2aa7b8] px-2 py-1 text-[10px] font-black text-white">
+                                            PRINCIPAL
+                                          </span>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleSetMainImage(index)}
+                                            className="rounded-full bg-[#0f2c3d]/80 p-1.5 text-white border border-[#27566f] hover:bg-[#12364a]"
+                                            title="Definir como principal do card"
+                                          >
+                                            <Star size={12} />
+                                          </button>
+                                        )}
+
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveImage(index)}
+                                          className="rounded-full bg-[#0f2c3d]/80 p-1.5 text-red-300 border border-[#27566f] hover:bg-[#12364a]"
+                                          title="Remover foto"
+                                        >
+                                          <Trash2 size={12} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {selectedPreviewImage && (
+                                <div className="space-y-2 pt-2">
+                                  <p className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                                    Visualização selecionada
+                                  </p>
+                                  <div className="relative overflow-hidden rounded-2xl border border-[#1c3b4f] bg-[#081521]">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        openGallery(
+                                          formGalleryImages,
+                                          previewImageIndex
+                                        )
+                                      }
+                                      className="block w-full"
+                                      title="Abrir galeria"
+                                    >
+                                      <img
+                                        src={selectedPreviewImage.url}
+                                        alt="Visualização selecionada"
+                                        className="w-full h-[220px] object-cover object-center cursor-zoom-in"
+                                      />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ) : (
-                        <div className="rounded-2xl border border-dashed border-[#27455a] bg-[#07131f] p-6 text-center">
-                          <p className="text-sm text-slate-400">
-                            Nenhuma foto adicionada ainda.
-                          </p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            Clique em “Selecionar fotos” para enviar até 10
-                            imagens.
-                          </p>
-                        </div>
-                      )}
+                        ) : (
+                          <div className="rounded-2xl border border-dashed border-[#27455a] bg-[#07131f] p-6 text-center">
+                            <p className="text-sm text-slate-400">
+                              Nenhuma foto adicionada ainda.
+                            </p>
+                            <p className="text-xs text-slate-500 mt-1">
+                              Clique em “Selecionar fotos” para enviar até 10
+                              imagens.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 xl:col-span-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Opções / opcionais
+                      </label>
+                      <Textarea
+                        value={form.options_clean}
+                        onChange={(e) =>
+                          atualizarCampo("options_clean", e.target.value)
+                        }
+                        placeholder="Ar-condicionado, direção elétrica..."
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white min-h-[100px]"
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div className="space-y-2 xl:col-span-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Descrição
+                      </label>
+                      <Textarea
+                        value={form.description_clean}
+                        onChange={(e) =>
+                          atualizarCampo("description_clean", e.target.value)
+                        }
+                        placeholder="Descrição completa do veículo..."
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white min-h-[120px]"
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <div className="space-y-2 xl:col-span-2">
+                      <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                        Status do estoque
+                      </label>
+                      <select
+                        value={form.available ? "true" : "false"}
+                        onChange={(e) =>
+                          atualizarCampo("available", e.target.value === "true")
+                        }
+                        className={selectClass}
+                        disabled={saving}
+                      >
+                        <option value="true">Ativo</option>
+                        <option value="false">Inativo</option>
+                      </select>
+                      <p className="text-xs text-slate-500">
+                        Ativo = aparece para a IA. Inativo = fica salvo, mas não
+                        entra na busca do agente.
+                      </p>
                     </div>
                   </div>
 
-                  <div className="space-y-2 xl:col-span-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Opções / opcionais
-                    </label>
-                    <Textarea
-                      value={form.options_clean}
-                      onChange={(e) =>
-                        atualizarCampo("options_clean", e.target.value)
-                      }
-                      placeholder="Ar-condicionado, direção elétrica..."
-                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white min-h-[100px]"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="space-y-2 xl:col-span-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Descrição
-                    </label>
-                    <Textarea
-                      value={form.description_clean}
-                      onChange={(e) =>
-                        atualizarCampo("description_clean", e.target.value)
-                      }
-                      placeholder="Descrição completa do veículo..."
-                      className="bg-[#0b1d2a] border-[#1c3b4f] text-white min-h-[120px]"
-                      disabled={saving}
-                    />
-                  </div>
-
-                  <div className="space-y-2 xl:col-span-2">
-                    <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                      Status do estoque
-                    </label>
-                    <select
-                      value={form.available ? "true" : "false"}
-                      onChange={(e) =>
-                        atualizarCampo("available", e.target.value === "true")
-                      }
-                      className={selectClass}
-                      disabled={saving}
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      type="submit"
+                      disabled={saving || catalogSaving}
+                      className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                     >
-                      <option value="true">Ativo</option>
-                      <option value="false">Inativo</option>
-                    </select>
-                    <p className="text-xs text-slate-500">
-                      Ativo = aparece para a IA. Inativo = fica salvo, mas não
-                      entra na busca do agente.
-                    </p>
+                      {saving ? "Salvando alterações..." : "Salvar alterações"}
+                    </Button>
+
+                    {catalogSaving && (
+                      <span className="text-sm text-slate-400 self-center">
+                        Atualizando catálogo...
+                      </span>
+                    )}
                   </div>
-                </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    type="submit"
-                    disabled={saving || catalogSaving}
-                    className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                  >
-                    {saving ? "Salvando alterações..." : "Salvar alterações"}
-                  </Button>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="bg-[#081521] border-[#1c3b4f] rounded-2xl">
+            <CardContent className="p-5 min-h-[120px] flex flex-col justify-between">
+              <div className="flex items-start justify-between">
+                <span className="text-slate-400 text-sm font-black uppercase tracking-widest">
+                  Total
+                </span>
+                <Car size={18} className="text-[#2aa7b8]" />
+              </div>
+              <div className="text-4xl font-black text-white">{totalVeiculos}</div>
+            </CardContent>
+          </Card>
 
-                  {catalogSaving && (
-                    <span className="text-sm text-slate-400 self-center">
-                      Atualizando catálogo...
-                    </span>
-                  )}
-                </div>
-              </form>
+          <Card className="bg-[#081521] border-[#1c3b4f] rounded-2xl">
+            <CardContent className="p-5 min-h-[120px] flex flex-col justify-between">
+              <div className="flex items-start justify-between">
+                <span className="text-slate-400 text-sm font-black uppercase tracking-widest">
+                  Ativos
+                </span>
+                <CheckCircle2 size={18} className="text-emerald-400" />
+              </div>
+              <div className="text-4xl font-black text-emerald-400">
+                {veiculosAtivos}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-[#081521] border-[#1c3b4f] rounded-2xl">
+            <CardContent className="p-5 min-h-[120px] flex flex-col justify-between">
+              <div className="flex items-start justify-between">
+                <span className="text-slate-400 text-sm font-black uppercase tracking-widest">
+                  Inativos
+                </span>
+                <CircleX size={18} className="text-slate-300" />
+              </div>
+              <div className="text-4xl font-black text-slate-300">
+                {veiculosInativos}
+              </div>
             </CardContent>
           </Card>
         </div>
-      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-[#081521] border-[#1c3b4f] rounded-2xl">
-          <CardContent className="p-5 min-h-[120px] flex flex-col justify-between">
-            <div className="flex items-start justify-between">
-              <span className="text-slate-400 text-sm font-black uppercase tracking-widest">
-                Total
-              </span>
-              <Car size={18} className="text-[#2aa7b8]" />
+        <Card className="bg-[#0a1722] border-[#1c3b4f] rounded-2xl">
+          <CardContent className="p-6 md:p-8 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                  Placa
+                </label>
+                <Input
+                  value={placaBusca}
+                  onChange={(e) => setPlacaBusca(e.target.value.toUpperCase())}
+                  placeholder="Ex.: FJR1A61"
+                  className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                  Marca
+                </label>
+                <select
+                  value={marcaBusca}
+                  onChange={(e) => {
+                    setMarcaBusca(e.target.value);
+                    setModeloBusca("");
+                  }}
+                  className={selectClass}
+                >
+                  <option value="">Todas</option>
+                  {marcas.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                  Modelo
+                </label>
+                <select
+                  value={modeloBusca}
+                  onChange={(e) => setModeloBusca(e.target.value)}
+                  className={selectClass}
+                >
+                  <option value="">Todos</option>
+                  {modelosDaMarcaFiltro.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                  Status
+                </label>
+                <select
+                  value={statusBusca}
+                  onChange={(e) =>
+                    setStatusBusca(e.target.value as "all" | "active" | "inactive")
+                  }
+                  className={selectClass}
+                >
+                  <option value="all">Todos</option>
+                  <option value="active">Ativos</option>
+                  <option value="inactive">Inativos</option>
+                </select>
+              </div>
             </div>
-            <div className="text-4xl font-black text-white">{totalVeiculos}</div>
+
+            <div className="flex flex-wrap gap-3">
+              <Button
+                onClick={aplicarFiltros}
+                className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
+              >
+                <Search size={16} className="mr-2" />
+                Buscar
+              </Button>
+
+              <Button
+                onClick={limparFiltros}
+                variant="outline"
+                className="border-[#27455a] bg-transparent text-white hover:bg-[#0b1d2a] hover:text-white"
+              >
+                Limpar filtros
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-[#081521] border-[#1c3b4f] rounded-2xl">
-          <CardContent className="p-5 min-h-[120px] flex flex-col justify-between">
-            <div className="flex items-start justify-between">
-              <span className="text-slate-400 text-sm font-black uppercase tracking-widest">
-                Ativos
-              </span>
-              <CheckCircle2 size={18} className="text-emerald-400" />
-            </div>
-            <div className="text-4xl font-black text-emerald-400">
-              {veiculosAtivos}
-            </div>
-          </CardContent>
-        </Card>
+        {loading ? (
+          <Card className="bg-[#0a1722] border-[#1c3b4f] rounded-2xl">
+            <CardContent className="p-6 text-slate-400">
+              Carregando estoque...
+            </CardContent>
+          </Card>
+        ) : filteredVehicles.length === 0 ? (
+          <Card className="bg-[#0a1722] border-[#1c3b4f] rounded-2xl">
+            <CardContent className="p-6 text-slate-400">
+              Nenhum veículo encontrado com os filtros atuais.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {filteredVehicles.map((vehicle) => {
+              const isActive = vehicle.available !== false;
+              const isToggling = togglingId === vehicle.id;
+              const images = getVehicleImages(vehicle);
 
-        <Card className="bg-[#081521] border-[#1c3b4f] rounded-2xl">
-          <CardContent className="p-5 min-h-[120px] flex flex-col justify-between">
-            <div className="flex items-start justify-between">
-              <span className="text-slate-400 text-sm font-black uppercase tracking-widest">
-                Inativos
-              </span>
-              <CircleX size={18} className="text-slate-300" />
-            </div>
-            <div className="text-4xl font-black text-slate-300">
-              {veiculosInativos}
-            </div>
-          </CardContent>
-        </Card>
+              const vehicleGalleryImages: GalleryImage[] = images.map(
+                (img, index) => ({
+                  url: img,
+                  alt: `${vehicle.make || ""} ${vehicle.model || ""} - foto ${
+                    index + 1
+                  }`,
+                })
+              );
+
+              return (
+                <Card
+                  key={vehicle.id}
+                  className="bg-[#0a1722] border-[#1c3b4f] rounded-2xl"
+                >
+                  <CardContent className="p-6 md:p-8">
+                    <div className="flex flex-col lg:flex-row gap-5">
+                      <div className="w-full lg:w-[380px] shrink-0">
+                        <div className="space-y-3">
+                          <button
+                            type="button"
+                            onClick={() => openGallery(vehicleGalleryImages, 0)}
+                            className="block w-full group"
+                            title="Abrir galeria"
+                          >
+                            <img
+                              src={images[0]}
+                              alt={`${vehicle.make || ""} ${
+                                vehicle.model || ""
+                              } - foto principal`}
+                              className="w-full h-[300px] md:h-[340px] object-cover object-center rounded-2xl border border-[#1c3b4f] bg-[#081521] transition-all duration-300 group-hover:border-[#2aa7b8]/70 group-hover:scale-[1.01] cursor-zoom-in"
+                            />
+                          </button>
+
+                          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                            {images.slice(1).map((img, index) => {
+                              const realIndex = index + 1;
+                              const alt = `${vehicle.make || ""} ${
+                                vehicle.model || ""
+                              } - foto ${realIndex + 1}`;
+
+                              return (
+                                <button
+                                  key={`${vehicle.id}-${index}`}
+                                  type="button"
+                                  onClick={() =>
+                                    openGallery(vehicleGalleryImages, realIndex)
+                                  }
+                                  className="block w-full"
+                                  title="Abrir galeria"
+                                >
+                                  <img
+                                    src={img}
+                                    alt={alt}
+                                    className="w-full h-[68px] object-cover rounded-xl border border-[#1c3b4f] bg-[#081521] transition-all duration-300 hover:scale-[1.03] hover:border-[#2aa7b8]/60 hover:shadow-[0_0_0_1px_rgba(42,167,184,0.18)] cursor-zoom-in"
+                                  />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 space-y-4">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-3">
+                              <h2 className="text-2xl font-black text-white">
+                                {vehicle.make || "-"} {vehicle.model || "-"}
+                              </h2>
+
+                              <Badge
+                                className={cn(
+                                  "border",
+                                  isActive
+                                    ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                                    : "bg-slate-500/15 text-slate-300 border-slate-500/30"
+                                )}
+                              >
+                                {isActive ? "Ativo" : "Inativo"}
+                              </Badge>
+                            </div>
+
+                            <p className="text-slate-400 text-sm mt-1">
+                              {vehicle.title_clean || "Sem título"}
+                            </p>
+                          </div>
+
+                          {canEditInventory && (
+                            <div className="flex flex-wrap gap-3">
+                              <Button
+                                onClick={() => abrirEdicao(vehicle)}
+                                variant="outline"
+                                className="border-[#27455a] bg-transparent text-white hover:bg-[#0b1d2a] hover:text-white"
+                              >
+                                <PencilLine size={16} className="mr-2" />
+                                Alterar
+                              </Button>
+
+                              {isActive ? (
+                                <Button
+                                  onClick={() => alterarStatus(vehicle, false)}
+                                  disabled={isToggling}
+                                  className="bg-[#12364a] hover:bg-[#17485f] text-white font-black"
+                                >
+                                  {isToggling ? "Processando..." : "Desativar"}
+                                </Button>
+                              ) : (
+                                <Button
+                                  onClick={() => alterarStatus(vehicle, true)}
+                                  disabled={isToggling}
+                                  className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
+                                >
+                                  {isToggling ? "Processando..." : "Ativar"}
+                                </Button>
+                              )}
+
+                              <Button
+                                onClick={() => excluirVeiculo(vehicle)}
+                                disabled={deletingId === vehicle.id}
+                                className="bg-red-600 hover:bg-red-700 text-white font-black"
+                              >
+                                {deletingId === vehicle.id
+                                  ? "Excluindo..."
+                                  : "Excluir cadastro"}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                          <div>
+                            <p className="text-slate-400 uppercase text-xs font-bold">
+                              Placa
+                            </p>
+                            <p className="text-white font-semibold">
+                              {vehicle.plate || "-"}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-slate-400 uppercase text-xs font-bold">
+                              Ano
+                            </p>
+                            <p className="text-white font-semibold">
+                              {vehicle.year || "-"}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-slate-400 uppercase text-xs font-bold">
+                              Preço
+                            </p>
+                            <p className="text-white font-semibold">
+                              {formatMoney(vehicle.promo_price || vehicle.price)}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-slate-400 uppercase text-xs font-bold">
+                              Cor
+                            </p>
+                            <p className="text-white font-semibold">
+                              {vehicle.color || "-"}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-slate-400 uppercase text-xs font-bold">
+                              Combustível
+                            </p>
+                            <p className="text-white font-semibold">
+                              {vehicle.fuel || "-"}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-slate-400 uppercase text-xs font-bold">
+                              Câmbio
+                            </p>
+                            <p className="text-white font-semibold">
+                              {vehicle.gear || "-"}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-slate-400 uppercase text-xs font-bold">
+                              Motor
+                            </p>
+                            <p className="text-white font-semibold">
+                              {vehicle.motor || "-"}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-slate-400 uppercase text-xs font-bold">
+                              Portas
+                            </p>
+                            <p className="text-white font-semibold">
+                              {vehicle.doors ?? "-"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                          {vehicle.base_model && (
+                            <span className="rounded-full border border-[#1c3b4f] px-3 py-1">
+                              Base: {vehicle.base_model}
+                            </span>
+                          )}
+                          {vehicle.version && (
+                            <span className="rounded-full border border-[#1c3b4f] px-3 py-1">
+                              Versão: {vehicle.version}
+                            </span>
+                          )}
+                          {vehicle.category && (
+                            <span className="rounded-full border border-[#1c3b4f] px-3 py-1">
+                              Categoria: {vehicle.category}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      <Card className="bg-[#0a1722] border-[#1c3b4f] rounded-2xl">
-        <CardContent className="p-6 md:p-8 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                Placa
-              </label>
-              <Input
-                value={placaBusca}
-                onChange={(e) => setPlacaBusca(e.target.value.toUpperCase())}
-                placeholder="Ex.: FJR1A61"
-                className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                Marca
-              </label>
-              <select
-                value={marcaBusca}
-                onChange={(e) => {
-                  setMarcaBusca(e.target.value);
-                  setModeloBusca("");
-                }}
-                className={selectClass}
-              >
-                <option value="">Todas</option>
-                {marcas.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                Modelo
-              </label>
-              <select
-                value={modeloBusca}
-                onChange={(e) => setModeloBusca(e.target.value)}
-                className={selectClass}
-              >
-                <option value="">Todos</option>
-                {modelosDaMarcaFiltro.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                Status
-              </label>
-              <select
-                value={statusBusca}
-                onChange={(e) =>
-                  setStatusBusca(e.target.value as "all" | "active" | "inactive")
-                }
-                className={selectClass}
-              >
-                <option value="all">Todos</option>
-                <option value="active">Ativos</option>
-                <option value="inactive">Inativos</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <Button
-              onClick={aplicarFiltros}
-              className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
+      {isClient &&
+        galleryModal &&
+        galleryCurrentImage &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[99999] bg-black/95"
+            onClick={closeGallery}
+          >
+            <div
+              className="flex min-h-screen w-full items-center justify-center px-2 py-3 sm:px-4 sm:py-5"
+              onClick={(event) => event.stopPropagation()}
             >
-              <Search size={16} className="mr-2" />
-              Buscar
-            </Button>
+              <div className="w-full max-w-6xl">
+                <div className="rounded-2xl bg-transparent">
+                  <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl">
+                    <button
+                      type="button"
+                      onClick={closeGallery}
+                      className="absolute right-3 top-3 z-30 rounded-full border border-white/20 bg-black/55 p-2 text-white backdrop-blur hover:bg-black/75"
+                      title="Fechar"
+                    >
+                      <X size={22} />
+                    </button>
 
-            <Button
-              onClick={limparFiltros}
-              variant="outline"
-              className="border-[#27455a] bg-transparent text-white hover:bg-[#0b1d2a] hover:text-white"
-            >
-              Limpar filtros
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+                    {galleryHasManyImages && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={goToPrevImage}
+                          className="absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 p-2 text-white backdrop-blur hover:bg-black/65 sm:left-4"
+                          title="Imagem anterior"
+                        >
+                          <ChevronLeft size={22} />
+                        </button>
 
-      {loading ? (
-        <Card className="bg-[#0a1722] border-[#1c3b4f] rounded-2xl">
-          <CardContent className="p-6 text-slate-400">
-            Carregando estoque...
-          </CardContent>
-        </Card>
-      ) : filteredVehicles.length === 0 ? (
-        <Card className="bg-[#0a1722] border-[#1c3b4f] rounded-2xl">
-          <CardContent className="p-6 text-slate-400">
-            Nenhum veículo encontrado com os filtros atuais.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {filteredVehicles.map((vehicle) => {
-            const isActive = vehicle.available !== false;
-            const isToggling = togglingId === vehicle.id;
-            const images = getVehicleImages(vehicle);
+                        <button
+                          type="button"
+                          onClick={goToNextImage}
+                          className="absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 p-2 text-white backdrop-blur hover:bg-black/65 sm:right-4"
+                          title="Próxima imagem"
+                        >
+                          <ChevronRight size={22} />
+                        </button>
+                      </>
+                    )}
 
-            return (
-              <Card
-                key={vehicle.id}
-                className="bg-[#0a1722] border-[#1c3b4f] rounded-2xl"
-              >
-                <CardContent className="p-6 md:p-8">
-                  <div className="flex flex-col lg:flex-row gap-5">
-                    <div className="w-full lg:w-[380px] shrink-0">
-                      <div className="space-y-3">
-                        <img
-                          src={images[0]}
-                          alt={`${vehicle.make || ""} ${vehicle.model || ""} - foto principal`}
-                          className="w-full h-[300px] md:h-[340px] object-cover object-center rounded-2xl border border-[#1c3b4f] bg-[#081521]"
-                        />
-
-                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                          {images.slice(1).map((img, index) => (
-                            <img
-                              key={`${vehicle.id}-${index}`}
-                              src={img}
-                              alt={`${vehicle.make || ""} ${vehicle.model || ""} - foto ${
-                                index + 2
-                              }`}
-                              className="w-full h-[68px] object-cover rounded-xl border border-[#1c3b4f] bg-[#081521] transition-all duration-300 hover:scale-[1.03] hover:border-[#2aa7b8]/60 hover:shadow-[0_0_0_1px_rgba(42,167,184,0.18)] cursor-default"
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 space-y-4">
-                      <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-3">
-                            <h2 className="text-2xl font-black text-white">
-                              {vehicle.make || "-"} {vehicle.model || "-"}
-                            </h2>
-
-                            <Badge
-                              className={cn(
-                                "border",
-                                isActive
-                                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                                  : "bg-slate-500/15 text-slate-300 border-slate-500/30"
-                              )}
-                            >
-                              {isActive ? "Ativo" : "Inativo"}
-                            </Badge>
-                          </div>
-
-                          <p className="text-slate-400 text-sm mt-1">
-                            {vehicle.title_clean || "Sem título"}
-                          </p>
-                        </div>
-
-                        {canEditInventory && (
-                          <div className="flex flex-wrap gap-3">
-                            <Button
-                              onClick={() => abrirEdicao(vehicle)}
-                              variant="outline"
-                              className="border-[#27455a] bg-transparent text-white hover:bg-[#0b1d2a] hover:text-white"
-                            >
-                              <PencilLine size={16} className="mr-2" />
-                              Alterar
-                            </Button>
-
-                            {isActive ? (
-                              <Button
-                                onClick={() => alterarStatus(vehicle, false)}
-                                disabled={isToggling}
-                                className="bg-[#12364a] hover:bg-[#17485f] text-white font-black"
-                              >
-                                {isToggling ? "Processando..." : "Desativar"}
-                              </Button>
-                            ) : (
-                              <Button
-                                onClick={() => alterarStatus(vehicle, true)}
-                                disabled={isToggling}
-                                className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                              >
-                                {isToggling ? "Processando..." : "Ativar"}
-                              </Button>
-                            )}
-
-                            <Button
-                              onClick={() => excluirVeiculo(vehicle)}
-                              disabled={deletingId === vehicle.id}
-                              className="bg-red-600 hover:bg-red-700 text-white font-black"
-                            >
-                              {deletingId === vehicle.id
-                                ? "Excluindo..."
-                                : "Excluir cadastro"}
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                        <div>
-                          <p className="text-slate-400 uppercase text-xs font-bold">
-                            Placa
-                          </p>
-                          <p className="text-white font-semibold">
-                            {vehicle.plate || "-"}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-slate-400 uppercase text-xs font-bold">
-                            Ano
-                          </p>
-                          <p className="text-white font-semibold">
-                            {vehicle.year || "-"}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-slate-400 uppercase text-xs font-bold">
-                            Preço
-                          </p>
-                          <p className="text-white font-semibold">
-                            {formatMoney(vehicle.promo_price || vehicle.price)}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-slate-400 uppercase text-xs font-bold">
-                            Cor
-                          </p>
-                          <p className="text-white font-semibold">
-                            {vehicle.color || "-"}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-slate-400 uppercase text-xs font-bold">
-                            Combustível
-                          </p>
-                          <p className="text-white font-semibold">
-                            {vehicle.fuel || "-"}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-slate-400 uppercase text-xs font-bold">
-                            Câmbio
-                          </p>
-                          <p className="text-white font-semibold">
-                            {vehicle.gear || "-"}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-slate-400 uppercase text-xs font-bold">
-                            Motor
-                          </p>
-                          <p className="text-white font-semibold">
-                            {vehicle.motor || "-"}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-slate-400 uppercase text-xs font-bold">
-                            Portas
-                          </p>
-                          <p className="text-white font-semibold">
-                            {vehicle.doors ?? "-"}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                        {vehicle.base_model && (
-                          <span className="rounded-full border border-[#1c3b4f] px-3 py-1">
-                            Base: {vehicle.base_model}
-                          </span>
-                        )}
-                        {vehicle.version && (
-                          <span className="rounded-full border border-[#1c3b4f] px-3 py-1">
-                            Versão: {vehicle.version}
-                          </span>
-                        )}
-                        {vehicle.category && (
-                          <span className="rounded-full border border-[#1c3b4f] px-3 py-1">
-                            Categoria: {vehicle.category}
-                          </span>
-                        )}
-                      </div>
+                    <div className="flex items-center justify-center bg-black">
+                      <img
+                        src={galleryCurrentImage.url}
+                        alt={galleryCurrentImage.alt}
+                        className="w-full max-h-[72vh] sm:max-h-[78vh] object-contain bg-black"
+                      />
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-    </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-3 px-1">
+                    <p className="truncate text-sm text-white/90">
+                      {galleryCurrentImage.alt}
+                    </p>
+
+                    <span className="shrink-0 text-xs text-white/70">
+                      {galleryModal.index + 1} / {galleryModal.images.length}
+                    </span>
+                  </div>
+
+                  {galleryHasManyImages && (
+                    <div className="mt-3 overflow-x-auto pb-1">
+                      <div className="flex w-max min-w-full gap-2">
+                        {galleryModal.images.map((img, index) => {
+                          const isActive = index === galleryModal.index;
+
+                          return (
+                            <button
+                              key={`${img.url}-${index}`}
+                              type="button"
+                              onClick={() => goToImage(index)}
+                              className={cn(
+                                "shrink-0 overflow-hidden rounded-xl border bg-[#081521] transition-all",
+                                isActive
+                                  ? "border-[#2aa7b8] ring-2 ring-[#2aa7b8]/30"
+                                  : "border-white/10 hover:border-white/30"
+                              )}
+                              title={`Abrir imagem ${index + 1}`}
+                            >
+                              <img
+                                src={img.url}
+                                alt={img.alt}
+                                className="h-16 w-24 object-cover sm:h-20 sm:w-32"
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
   );
 };
 

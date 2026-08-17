@@ -90,6 +90,11 @@ const Leads = () => {
     "administrador",
   ].includes(String(role).trim().toLowerCase());
 
+  const cardClass = "bg-[#0f1d2b] border-[#173146]";
+  const cardClassAlt = "bg-[#101f30] border-[#1b3145]";
+  const panelSoftClass = "bg-[#07111b]/70 border-[#173146]";
+  const tableClass = "bg-[#0b1623] border-[#173146]";
+
   useEffect(() => {
     const style = document.createElement("style");
     style.id = "hide-floating-whatsapp-leads";
@@ -316,12 +321,12 @@ const Leads = () => {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <Skeleton className="h-10 w-48 bg-zinc-900" />
-          <Skeleton className="h-6 w-24 bg-zinc-900" />
+          <Skeleton className="h-10 w-48 bg-[#102030]" />
+          <Skeleton className="h-6 w-24 bg-[#102030]" />
         </div>
         <div className="space-y-4">
-          <Skeleton className="h-12 w-full bg-zinc-900" />
-          <Skeleton className="h-64 w-full bg-zinc-900" />
+          <Skeleton className="h-12 w-full bg-[#102030]" />
+          <Skeleton className="h-64 w-full bg-[#102030]" />
         </div>
       </div>
     );
@@ -381,7 +386,7 @@ const Leads = () => {
           )}
         </div>
 
-        <div className="rounded-xl bg-black/40 border border-zinc-800 p-3">
+        <div className="rounded-xl bg-[#07111b]/70 border border-[#173146] p-3">
           <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-black mb-1">
             Limite pela renda
           </div>
@@ -451,7 +456,7 @@ const Leads = () => {
           return (
             <div
               key={lead.id}
-              className="bg-[#0a0a0a] border border-zinc-800 rounded-2xl p-5 space-y-4"
+              className="bg-[#0f1d2b] border border-[#173146] rounded-2xl p-5 space-y-4"
             >
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2 text-zinc-400 text-xs">
@@ -475,7 +480,7 @@ const Leads = () => {
                   </span>
                 </div>
 
-                <div className="rounded-xl bg-zinc-950/70 border border-zinc-800 p-3 space-y-2 mt-3">
+                <div className="rounded-xl bg-[#07111b]/70 border border-[#173146] p-3 space-y-2 mt-3">
                   <div className="flex justify-between gap-3 text-xs">
                     <span className="text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-1">
                       <Store size={12} /> Lojista:
@@ -510,7 +515,7 @@ const Leads = () => {
                 </a>
 
                 <a href={phoneUrl} className="flex-1">
-                  <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl flex gap-2 items-center justify-center py-5">
+                  <Button className="w-full bg-[#13283b] hover:bg-[#2f7ea1] text-white font-bold rounded-xl flex gap-2 items-center justify-center py-5">
                     <Phone size={16} />
                     Ligar celular
                   </Button>
@@ -519,7 +524,7 @@ const Leads = () => {
                 <Button
                   variant="outline"
                   onClick={() => toggleExpand(lead.id)}
-                  className="border-zinc-800 text-zinc-400 hover:bg-zinc-900 rounded-xl px-3"
+                  className="border-[#173146] bg-transparent text-zinc-400 hover:bg-[#13283b] rounded-xl px-3"
                 >
                   {isExpanded ? (
                     <ChevronUp size={18} />
@@ -530,9 +535,9 @@ const Leads = () => {
               </div>
 
               {isExpanded && (
-                <div className="pt-4 border-t border-zinc-900 space-y-4 text-sm animate-in fade-in duration-200">
+                <div className="pt-4 border-t border-[#173146] space-y-4 text-sm animate-in fade-in duration-200">
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-zinc-900/40 p-3 rounded-xl border border-zinc-800/50">
+                    <div className="bg-[#07111b]/60 p-3 rounded-xl border border-[#173146]">
                       <span className="text-zinc-500 text-[10px] uppercase font-black tracking-wider block">
                         Valor do Veículo
                       </span>
@@ -542,7 +547,7 @@ const Leads = () => {
                           : "Não informado"}
                       </span>
                     </div>
-                    <div className="bg-zinc-900/40 p-3 rounded-xl border border-zinc-800/50">
+                    <div className="bg-[#07111b]/60 p-3 rounded-xl border border-[#173146]">
                       <span className="text-zinc-500 text-[10px] uppercase font-black tracking-wider block">
                         Renda Mensal
                       </span>
@@ -550,7 +555,7 @@ const Leads = () => {
                         {formatarMoeda(lead.renda)}
                       </span>
                     </div>
-                    <div className="bg-zinc-900/40 p-3 rounded-xl border border-zinc-800/50">
+                    <div className="bg-[#07111b]/60 p-3 rounded-xl border border-[#173146]">
                       <span className="text-zinc-500 text-[10px] uppercase font-black tracking-wider block">
                         Entrada
                       </span>
@@ -558,7 +563,7 @@ const Leads = () => {
                         {formatarMoeda(lead.entrada)}
                       </span>
                     </div>
-                    <div className="bg-zinc-900/40 p-3 rounded-xl border border-zinc-800/50">
+                    <div className="bg-[#07111b]/60 p-3 rounded-xl border border-[#173146]">
                       <span className="text-zinc-500 text-[10px] uppercase font-black tracking-wider block">
                         Saldo a Financiar
                       </span>
@@ -567,7 +572,7 @@ const Leads = () => {
                       </span>
                     </div>
 
-                    <div className="bg-zinc-900/40 p-3 rounded-xl border border-zinc-800/50 col-span-2">
+                    <div className="bg-[#07111b]/60 p-3 rounded-xl border border-[#173146] col-span-2">
                       <span className="text-zinc-500 text-[10px] uppercase font-black tracking-wider block">
                         Base / Pré-aprovação
                       </span>
@@ -591,7 +596,7 @@ const Leads = () => {
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-zinc-900 flex flex-col gap-1.5 text-xs">
+                  <div className="pt-3 border-t border-[#173146] flex flex-col gap-1.5 text-xs">
                     <div className="flex justify-between">
                       <span className="text-zinc-500 font-bold uppercase tracking-wider">
                         Lojista:
@@ -626,7 +631,7 @@ const Leads = () => {
         })}
 
         {leads.length === 0 && (
-          <div className="text-center py-20 border border-dashed border-zinc-800 rounded-2xl">
+          <div className="text-center py-20 border border-dashed border-[#173146] rounded-2xl bg-[#07111b]/40">
             <p className="text-zinc-500">
               Nenhum lead recebido até o momento.
             </p>
@@ -634,10 +639,10 @@ const Leads = () => {
         )}
       </div>
 
-      <div className="hidden md:block bg-[#0a0a0a] border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl">
+      <div className="hidden md:block bg-[#0f1d2b] border border-[#173146] rounded-2xl overflow-hidden shadow-2xl">
         <Table>
-          <TableHeader className="bg-zinc-900/50">
-            <TableRow className="border-zinc-800 hover:bg-transparent">
+          <TableHeader className="bg-[#07111b]/70">
+            <TableRow className="border-[#173146] hover:bg-transparent">
               <TableHead className="text-zinc-400 font-bold py-4">
                 Data
               </TableHead>
@@ -682,7 +687,7 @@ const Leads = () => {
               return (
                 <TableRow
                   key={lead.id}
-                  className="border-zinc-800 hover:bg-zinc-900/30 transition-colors"
+                  className="border-[#173146] hover:bg-[#13283b]/30 transition-colors"
                 >
                   <TableCell className="text-zinc-300 py-4">
                     {formatarData(lead.created_at)}
@@ -778,7 +783,7 @@ const Leads = () => {
                       <a href={phoneUrl}>
                         <Button
                           size="sm"
-                          className="bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-lg flex gap-1.5 items-center min-w-[120px] justify-center"
+                          className="bg-[#13283b] hover:bg-[#2f7ea1] text-white font-bold rounded-lg flex gap-1.5 items-center min-w-[120px] justify-center"
                         >
                           <Phone size={14} />
                           Ligar celular
