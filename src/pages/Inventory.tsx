@@ -2914,35 +2914,36 @@ const Inventory = () => {
                   </div>
 
                   {galleryHasManyImages && (
-                    <div className="mt-3 overflow-x-auto pb-1">
-                      <div className="flex w-max min-w-full gap-2">
-                        {galleryModal.images.map((img, index) => {
-                          const isActive = index === galleryModal.index;
+  <div className="mt-3 overflow-x-auto pb-1 touch-pan-x [-webkit-overflow-scrolling:touch]">
+    <div className="flex w-max min-w-full gap-2">
+      {galleryModal.images.map((img, index) => {
+        const isActive = index === galleryModal.index;
 
-                          return (
-                            <button
-                              key={`${img.url}-${index}`}
-                              type="button"
-                              onClick={() => goToImage(index)}
-                              className={cn(
-                                "shrink-0 overflow-hidden rounded-xl border bg-[#081521] transition-all",
-                                isActive
-                                  ? "border-[#2aa7b8] ring-2 ring-[#2aa7b8]/30"
-                                  : "border-white/10 hover:border-white/30"
-                              )}
-                              title={`Abrir imagem ${index + 1}`}
-                            >
-                              <img
-                                src={img.url}
-                                alt={img.alt}
-                                className="h-16 w-24 object-cover sm:h-20 sm:w-32"
-                              />
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+        return (
+          <button
+            key={`${img.url}-${index}`}
+            type="button"
+            onPointerUp={() => goToImage(index)}
+            style={{ touchAction: "manipulation" }}
+            className={cn(
+              "shrink-0 overflow-hidden rounded-xl border bg-[#081521] transition-all",
+              isActive
+                ? "border-[#2aa7b8] ring-2 ring-[#2aa7b8]/30"
+                : "border-white/10 hover:border-white/30"
+            )}
+            title={`Abrir imagem ${index + 1}`}
+          >
+            <img
+              src={img.url}
+              alt={img.alt}
+              className="h-16 w-24 object-cover sm:h-20 sm:w-32"
+            />
+          </button>
+        );
+      })}
+    </div>
+  </div>
+)}
                 </div>
               </div>
             </div>
