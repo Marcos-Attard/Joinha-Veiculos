@@ -17,53 +17,48 @@ const TrocarSenha = () => {
   const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
-    const ensureSession = async () => {
+    const prepareSession = async () => {
       try {
-        const { data: sessionData, error: sessionError } =
-          await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
 
-        if (sessionError) {
-          throw sessionError;
+        if (error) {
+          throw error;
         }
 
-        if (sessionData.session) {
-          setSessionReady(true);
-          return;
-        }
-
-        const { data: refreshData, error: refreshError } =
-          await supabase.auth.refreshSession();
-
-        if (refreshError) {
-          throw refreshError;
-        }
-
-        if (!refreshData.session) {
-          showError("Sessão do Supabase ausente. Faça login novamente.");
+        if (!data.session?.access_token || !data.session?.refresh_token) {
+          showError("Sessão ausente. Faça login novamente.");
           navigate("/login", { replace: true });
           return;
         }
 
+        const { error: setSessionError } = await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+
+        if (setSessionError) {
+          throw setSessionError;
+        }
+
         setSessionReady(true);
       } catch (err) {
-        console.error("Erro ao validar sessão:", err);
-        showError("Não foi possível carregar sua sessão. Faça login novamente.");
+        console.error("Erro ao preparar sessão:", err);
+        showError("Não foi possível carregar sua sessão.");
         navigate("/login", { replace: true });
       }
     };
 
-    ensureSession();
+    prepareSession();
   }, [navigate]);
 
   const handleSalvarNovaSenha = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!sessionReady) {
-      showError("Sessão ainda não carregou. Aguarde um instante.");
+      showError("Sessão ainda não carregou.");
       return;
     }
 
-    const userId = localStorage.getItem("user_id") || "";
     const senha = novaSenha.trim();
     const confirmacao = confirmarNovaSenha.trim();
 
@@ -82,32 +77,26 @@ const TrocarSenha = () => {
       return;
     }
 
-    if (!userId) {
-      showError("Usuário não identificado.");
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const { data: sessionData, error: sessionError } =
-        await supabase.auth.getSession();
+      const { data, error } = await supabase.auth.getSession();
 
-      if (sessionError) {
-        throw sessionError;
+      if (error) {
+        throw error;
       }
 
-      if (!sessionData.session) {
-        const { data: refreshData, error: refreshError } =
-          await supabase.auth.refreshSession();
+      if (!data.session?.access_token || !data.session?.refresh_token) {
+        throw new Error("Auth session missing!");
+      }
 
-        if (refreshError) {
-          throw refreshError;
-        }
+      const { error: setSessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
 
-        if (!refreshData.session) {
-          throw new Error("Auth session missing!");
-        }
+      if (setSessionError) {
+        throw setSessionError;
       }
 
       const { error: updateAuthError } = await supabase.auth.updateUser({
@@ -118,15 +107,18 @@ const TrocarSenha = () => {
         throw updateAuthError;
       }
 
-      const { error: profileError } = await supabase
-        .from("profiles_joinha")
-        .update({
-          precisa_trocar_senha: false,
-        })
-        .eq("id", userId);
+      const userId = localStorage.getItem("user_id") || "";
+      if (userId) {
+        const { error: profileError } = await supabase
+          .from("profiles_joinha")
+          .update({
+            precisa_trocar_senha: false,
+          })
+          .eq("id", userId);
 
-      if (profileError) {
-        throw profileError;
+        if (profileError) {
+          throw profileError;
+        }
       }
 
       localStorage.setItem("force_change_password", "false");
