@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: adminProfile, error: adminProfileError } = await adminClient
-      .from("profiles")
+      .from("profiles_joinha")
       .select("role")
       .eq("id", loggedUser.id)
       .single();
