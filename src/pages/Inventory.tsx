@@ -396,53 +396,12 @@ const Inventory = () => {
     );
   };
 
+  // AJUSTE:
+  // O inventário não deve mais depender do catálogo ativo para exibir veículos.
+  // Assim, se uma marca/modelo for removido do catálogo, os veículos já cadastrados
+  // continuam visíveis e editáveis normalmente.
   const getVehiclesCatalogoAtivo = (listaBase: Vehicle[]) => {
-    return listaBase.filter((vehicle) => {
-      const category = normalizeText(vehicle.category || "");
-      const make = normalizeText(vehicle.make || "");
-      const model = normalizeText(vehicle.model || "");
-      const baseModel = normalizeText(vehicle.base_model || "");
-
-      const hasCategory = catalogItems.some(
-        (item) =>
-          item.catalog_type === "category" &&
-          normalizeText(item.category || "") === category
-      );
-
-      if (!hasCategory) return false;
-
-      const hasMake = catalogItems.some(
-        (item) =>
-          item.catalog_type === "make" &&
-          normalizeText(item.category || "") === category &&
-          normalizeText(item.make || "") === make
-      );
-
-      if (!hasMake) return false;
-
-      const hasModel = catalogItems.some(
-        (item) =>
-          item.catalog_type === "model" &&
-          normalizeText(item.category || "") === category &&
-          normalizeText(item.make || "") === make &&
-          normalizeText(item.model || "") === model
-      );
-
-      if (!hasModel) return false;
-
-      const hasBaseModel = catalogItems.some(
-        (item) =>
-          item.catalog_type === "base_model" &&
-          normalizeText(item.category || "") === category &&
-          normalizeText(item.make || "") === make &&
-          normalizeText(item.model || "") === model &&
-          normalizeText(item.base_model || "") === baseModel
-      );
-
-      if (!hasBaseModel) return false;
-
-      return true;
-    });
+    return [...listaBase];
   };
 
   const filtrarVeiculos = (listaBase: Vehicle[]) => {
@@ -968,6 +927,8 @@ const Inventory = () => {
     }
   };
 
+  // AJUSTE:
+  // Excluir item do catálogo NÃO mexe mais nos veículos cadastrados.
   const deletarItemCatalogo = async (type: CatalogType) => {
     if (!canEditInventory) return;
 
@@ -993,7 +954,7 @@ const Inventory = () => {
     }
 
     const confirmar = window.confirm(
-      "Deseja excluir esse item do catálogo? Os veículos reais relacionados serão desativados, mas não apagados."
+      "Deseja excluir esse item do catálogo? Isso vai remover apenas a opção do catálogo e não vai mexer nos veículos já cadastrados."
     );
 
     if (!confirmar) return;
@@ -1038,41 +999,6 @@ const Inventory = () => {
 
       if (error) throw error;
 
-      let updateVehiclesQuery = (supabase as any)
-        .from("vehicles_joinha")
-        .update({
-          available: false,
-          updated_at: now,
-        });
-
-      if (type === "category") {
-        updateVehiclesQuery = updateVehiclesQuery.eq("category", category);
-      }
-
-      if (type === "make") {
-        updateVehiclesQuery = updateVehiclesQuery
-          .eq("category", category)
-          .eq("make", make);
-      }
-
-      if (type === "model") {
-        updateVehiclesQuery = updateVehiclesQuery
-          .eq("category", category)
-          .eq("make", make)
-          .eq("model", model);
-      }
-
-      if (type === "base_model") {
-        updateVehiclesQuery = updateVehiclesQuery
-          .eq("category", category)
-          .eq("make", make)
-          .eq("model", model)
-          .eq("base_model", baseModel);
-      }
-
-      const { error: vehicleUpdateError } = await updateVehiclesQuery;
-      if (vehicleUpdateError) throw vehicleUpdateError;
-
       setForm((prev) => {
         if (type === "category") {
           return {
@@ -1108,8 +1034,8 @@ const Inventory = () => {
         };
       });
 
-      await Promise.all([carregarCatalogo(), carregarVehicles()]);
-      showSuccess("Item removido do catálogo e veículos relacionados desativados.");
+      await carregarCatalogo();
+      showSuccess("Item removido do catálogo sem alterar veículos cadastrados.");
     } catch (error: any) {
       console.error("Erro ao excluir item do catálogo:", error);
       showError(error?.message || "Não foi possível excluir o item.");
@@ -2914,36 +2840,36 @@ const Inventory = () => {
                   </div>
 
                   {galleryHasManyImages && (
-  <div className="mt-3 overflow-x-auto pb-1 touch-pan-x [-webkit-overflow-scrolling:touch]">
-    <div className="flex w-max min-w-full gap-2">
-      {galleryModal.images.map((img, index) => {
-        const isActive = index === galleryModal.index;
+                    <div className="mt-3 overflow-x-auto pb-1 touch-pan-x [-webkit-overflow-scrolling:touch]">
+                      <div className="flex w-max min-w-full gap-2">
+                        {galleryModal.images.map((img, index) => {
+                          const isActive = index === galleryModal.index;
 
-        return (
-          <button
-            key={`${img.url}-${index}`}
-            type="button"
-            onPointerUp={() => goToImage(index)}
-            style={{ touchAction: "manipulation" }}
-            className={cn(
-              "shrink-0 overflow-hidden rounded-xl border bg-[#081521] transition-all",
-              isActive
-                ? "border-[#2aa7b8] ring-2 ring-[#2aa7b8]/30"
-                : "border-white/10 hover:border-white/30"
-            )}
-            title={`Abrir imagem ${index + 1}`}
-          >
-            <img
-              src={img.url}
-              alt={img.alt}
-              className="h-16 w-24 object-cover sm:h-20 sm:w-32"
-            />
-          </button>
-        );
-      })}
-    </div>
-  </div>
-)}
+                          return (
+                            <button
+                              key={`${img.url}-${index}`}
+                              type="button"
+                              onPointerUp={() => goToImage(index)}
+                              style={{ touchAction: "manipulation" }}
+                              className={cn(
+                                "shrink-0 overflow-hidden rounded-xl border bg-[#081521] transition-all",
+                                isActive
+                                  ? "border-[#2aa7b8] ring-2 ring-[#2aa7b8]/30"
+                                  : "border-white/10 hover:border-white/30"
+                              )}
+                              title={`Abrir imagem ${index + 1}`}
+                            >
+                              <img
+                                src={img.url}
+                                alt={img.alt}
+                                className="h-16 w-24 object-cover sm:h-20 sm:w-32"
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
