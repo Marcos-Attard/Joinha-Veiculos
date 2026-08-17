@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,9 +14,54 @@ const TrocarSenha = () => {
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarNovaSenha, setConfirmarNovaSenha] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+
+  useEffect(() => {
+    const ensureSession = async () => {
+      try {
+        const { data: sessionData, error: sessionError } =
+          await supabase.auth.getSession();
+
+        if (sessionError) {
+          throw sessionError;
+        }
+
+        if (sessionData.session) {
+          setSessionReady(true);
+          return;
+        }
+
+        const { data: refreshData, error: refreshError } =
+          await supabase.auth.refreshSession();
+
+        if (refreshError) {
+          throw refreshError;
+        }
+
+        if (!refreshData.session) {
+          showError("Sessão do Supabase ausente. Faça login novamente.");
+          navigate("/login", { replace: true });
+          return;
+        }
+
+        setSessionReady(true);
+      } catch (err) {
+        console.error("Erro ao validar sessão:", err);
+        showError("Não foi possível carregar sua sessão. Faça login novamente.");
+        navigate("/login", { replace: true });
+      }
+    };
+
+    ensureSession();
+  }, [navigate]);
 
   const handleSalvarNovaSenha = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!sessionReady) {
+      showError("Sessão ainda não carregou. Aguarde um instante.");
+      return;
+    }
 
     const userId = localStorage.getItem("user_id") || "";
     const senha = novaSenha.trim();
@@ -45,6 +90,26 @@ const TrocarSenha = () => {
     setLoading(true);
 
     try {
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
+
+      if (sessionError) {
+        throw sessionError;
+      }
+
+      if (!sessionData.session) {
+        const { data: refreshData, error: refreshError } =
+          await supabase.auth.refreshSession();
+
+        if (refreshError) {
+          throw refreshError;
+        }
+
+        if (!refreshData.session) {
+          throw new Error("Auth session missing!");
+        }
+      }
+
       const { error: updateAuthError } = await supabase.auth.updateUser({
         password: senha,
       });
@@ -69,7 +134,8 @@ const TrocarSenha = () => {
       showSuccess("Nova senha salva com sucesso.");
       navigate("/dashboard", { replace: true });
     } catch (err: any) {
-      showError(err.message || "Não foi possível salvar a nova senha.");
+      console.error("Erro ao trocar senha:", err);
+      showError(err?.message || "Não foi possível salvar a nova senha.");
     } finally {
       setLoading(false);
     }
@@ -98,7 +164,7 @@ const TrocarSenha = () => {
                 onChange={(e) => setNovaSenha(e.target.value)}
                 className="bg-[#09131d] border-[#173146] text-white placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-[#2f7ea1] focus-visible:ring-offset-0"
                 autoComplete="new-password"
-                disabled={loading}
+                disabled={loading || !sessionReady}
               />
             </div>
 
@@ -114,16 +180,20 @@ const TrocarSenha = () => {
                 onChange={(e) => setConfirmarNovaSenha(e.target.value)}
                 className="bg-[#09131d] border-[#173146] text-white placeholder:text-zinc-500 focus-visible:ring-1 focus-visible:ring-[#2f7ea1] focus-visible:ring-offset-0"
                 autoComplete="new-password"
-                disabled={loading}
+                disabled={loading || !sessionReady}
               />
             </div>
 
             <Button
               type="submit"
               className="w-full bg-[#d4af37] hover:bg-[#c19b2e] text-black font-black"
-              disabled={loading}
+              disabled={loading || !sessionReady}
             >
-              {loading ? "Salvando..." : "Salvar nova senha"}
+              {loading
+                ? "Salvando..."
+                : sessionReady
+                ? "Salvar nova senha"
+                : "Carregando sessão..."}
             </Button>
           </form>
         </CardContent>
