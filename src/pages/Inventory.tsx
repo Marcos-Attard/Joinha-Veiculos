@@ -621,23 +621,7 @@ const Inventory = () => {
     if (insertError) throw insertError;
   };
 
-  const sincronizarOpcoesDoVeiculo = async (
-    vehicle: Vehicle,
-    optionals: string[]
-  ) => {
-    await Promise.all([
-      garantirOpcaoNoCatalogo("title_clean", vehicle.title_clean || ""),
-      garantirOpcaoNoCatalogo("fuel", vehicle.fuel || ""),
-      garantirOpcaoNoCatalogo("gear", vehicle.gear || ""),
-      garantirOpcaoNoCatalogo("motor", vehicle.motor || ""),
-      garantirOpcaoNoCatalogo("color", vehicle.color || ""),
-      garantirOpcaoNoCatalogo("version", vehicle.version || ""),
-      ...optionals.map((item) => garantirOpcaoNoCatalogo("optional", item)),
-    ]);
-
-    await carregarFormOptions();
-  };
-
+  
   useEffect(() => {
     if (canAccess) {
       carregarVehicles();
@@ -977,9 +961,7 @@ const Inventory = () => {
     setCadastroAberto(true);
     scrollToForm();
 
-    void sincronizarOpcoesDoVeiculo(vehicle, parsedOptionals);
-  };
-
+    
   const fecharCadastro = () => {
     if (saving || catalogSaving || formOptionsSaving) return;
     setCadastroAberto(false);
