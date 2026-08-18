@@ -190,6 +190,11 @@ const parseImagesText = (value: string) => {
     .filter(Boolean);
 };
 
+const uniqueSorted = (items: string[]) =>
+  Array.from(
+    new Set(items.map((item) => String(item || "").trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b));
+
 const uniquePreserve = (items: string[]) => {
   const seen = new Set<string>();
 
@@ -264,11 +269,6 @@ const getVehicleImages = (vehicle: Vehicle) => {
 
   return [...existing, ...placeholders].slice(0, 6);
 };
-
-const uniqueSorted = (items: string[]) =>
-  Array.from(
-    new Set(items.map((item) => String(item || "").trim()).filter(Boolean))
-  ).sort((a, b) => a.localeCompare(b));
 
 const withCurrent = (current: string, list: string[]) =>
   uniqueSorted(current ? [...list, current] : [...list]);
@@ -577,6 +577,65 @@ const Inventory = () => {
       console.error("Erro ao carregar opções do formulário:", error);
       showError(error?.message || "Não foi possível carregar as opções do formulário.");
     }
+  };
+
+  const normalizarOpcaoFormulario = (
+    type: FormOptionType,
+    value: string
+  ) => {
+    const clean = String(value || "").trim();
+    if (type === "title_clean") return clean.toUpperCase();
+    return clean;
+  };
+
+  const garantirOpcaoNoCatalogo = async (
+    type: FormOptionType,
+    value: string
+  ) => {
+    const clean = normalizarOpcaoFormulario(type, value);
+    if (!clean) return;
+
+    const { data, error } = await (supabase as any)
+      .from("vehicles_joinha_form_options")
+      .select("id")
+      .eq("active", true)
+      .eq("option_type", type)
+      .ilike("value", clean)
+      .maybeSingle();
+
+    if (error && error.code !== "PGRST116") throw error;
+    if (data) return;
+
+    const now = new Date().toISOString();
+
+    const { error: insertError } = await (supabase as any)
+      .from("vehicles_joinha_form_options")
+      .insert({
+        option_type: type,
+        value: clean,
+        active: true,
+        created_at: now,
+        updated_at: now,
+      });
+
+    if (insertError) throw insertError;
+  };
+
+  const sincronizarOpcoesDoVeiculo = async (
+    vehicle: Vehicle,
+    optionals: string[]
+  ) => {
+    await Promise.all([
+      garantirOpcaoNoCatalogo("title_clean", vehicle.title_clean || ""),
+      garantirOpcaoNoCatalogo("fuel", vehicle.fuel || ""),
+      garantirOpcaoNoCatalogo("gear", vehicle.gear || ""),
+      garantirOpcaoNoCatalogo("motor", vehicle.motor || ""),
+      garantirOpcaoNoCatalogo("color", vehicle.color || ""),
+      garantirOpcaoNoCatalogo("version", vehicle.version || ""),
+      ...optionals.map((item) => garantirOpcaoNoCatalogo("optional", item)),
+    ]);
+
+    await carregarFormOptions();
   };
 
   useEffect(() => {
@@ -910,12 +969,15 @@ const Inventory = () => {
       options_clean: buildOptionsText(parsedOptionals),
       version: vehicle.version || "",
     });
+
     setVehicleImages(existingImages);
     setPreviewImageIndex(0);
     syncSelectedOptionals(parsedOptionals);
     resetNovoAtributo();
     setCadastroAberto(true);
     scrollToForm();
+
+    void sincronizarOpcoesDoVeiculo(vehicle, parsedOptionals);
   };
 
   const fecharCadastro = () => {
@@ -941,53 +1003,11 @@ const Inventory = () => {
     return clean;
   };
 
-  const normalizarValorFormOption = (type: FormOptionType, value: string) => {
-    const clean = value.trim();
-    if (type === "title_clean") return clean.toUpperCase();
-    return clean;
-  };
-
-  const getCurrentFormOptionValue = (type: Exclude<FormOptionType, "optional">) => {
-    if (type === "title_clean") return form.title_clean;
-    if (type === "fuel") return form.fuel;
-    if (type === "gear") return form.gear;
-    if (type === "motor") return form.motor;
-    if (type === "color") return form.color;
-    return form.version;
-  };
-
-  const setCurrentFormOptionValue = (
-    type: Exclude<FormOptionType, "optional">,
-    value: string
-  ) => {
-    if (type === "title_clean") {
-      atualizarCampo("title_clean", value);
-      return;
-    }
-    if (type === "fuel") {
-      atualizarCampo("fuel", value);
-      return;
-    }
-    if (type === "gear") {
-      atualizarCampo("gear", value);
-      return;
-    }
-    if (type === "motor") {
-      atualizarCampo("motor", value);
-      return;
-    }
-    if (type === "color") {
-      atualizarCampo("color", value);
-      return;
-    }
-    atualizarCampo("version", value);
-  };
-
   const criarOpcaoFormulario = async (type: FormOptionType) => {
     if (!canEditInventory) return;
 
     const rawValue = novoAtributo[type]?.trim();
-    const value = normalizarValorFormOption(type, rawValue);
+    const value = normalizarOpcaoFormulario(type, rawValue);
 
     if (!value) {
       showError("Digite o nome da opção.");
@@ -1026,8 +1046,18 @@ const Inventory = () => {
 
       if (type === "optional") {
         syncSelectedOptionals([...selectedOptionals, value]);
-      } else {
-        setCurrentFormOptionValue(type, value);
+      } else if (type === "title_clean") {
+        atualizarCampo("title_clean", value);
+      } else if (type === "fuel") {
+        atualizarCampo("fuel", value);
+      } else if (type === "gear") {
+        atualizarCampo("gear", value);
+      } else if (type === "motor") {
+        atualizarCampo("motor", value);
+      } else if (type === "color") {
+        atualizarCampo("color", value);
+      } else if (type === "version") {
+        atualizarCampo("version", value);
       }
 
       await carregarFormOptions();
@@ -1048,7 +1078,7 @@ const Inventory = () => {
 
     const value =
       explicitValue?.trim() ||
-      (type === "optional" ? "" : getCurrentFormOptionValue(type).trim());
+      (type === "optional" ? "" : String(form[type === "title_clean" ? "title_clean" : type] || "").trim());
 
     if (!value) {
       return showError("Selecione uma opção para excluir.");
@@ -1093,10 +1123,30 @@ const Inventory = () => {
             (item) => normalizeText(item) !== normalizeText(value)
           )
         );
-      } else if (
-        normalizeText(getCurrentFormOptionValue(type)) === normalizeText(value)
-      ) {
-        setCurrentFormOptionValue(type, "");
+      } else if (type === "title_clean") {
+        if (normalizeText(form.title_clean) === normalizeText(value)) {
+          atualizarCampo("title_clean", "");
+        }
+      } else if (type === "fuel") {
+        if (normalizeText(form.fuel) === normalizeText(value)) {
+          atualizarCampo("fuel", "");
+        }
+      } else if (type === "gear") {
+        if (normalizeText(form.gear) === normalizeText(value)) {
+          atualizarCampo("gear", "");
+        }
+      } else if (type === "motor") {
+        if (normalizeText(form.motor) === normalizeText(value)) {
+          atualizarCampo("motor", "");
+        }
+      } else if (type === "color") {
+        if (normalizeText(form.color) === normalizeText(value)) {
+          atualizarCampo("color", "");
+        }
+      } else if (type === "version") {
+        if (normalizeText(form.version) === normalizeText(value)) {
+          atualizarCampo("version", "");
+        }
       }
 
       await carregarFormOptions();
@@ -1613,6 +1663,20 @@ const Inventory = () => {
     try {
       setSaving(true);
 
+      await Promise.all([
+        garantirOpcaoNoCatalogo("title_clean", title_clean),
+        garantirOpcaoNoCatalogo("fuel", fuel),
+        garantirOpcaoNoCatalogo("gear", gear),
+        garantirOpcaoNoCatalogo("motor", motor),
+        garantirOpcaoNoCatalogo("color", color),
+        garantirOpcaoNoCatalogo("version", version || ""),
+        ...selectedOptionals.map((item) =>
+          garantirOpcaoNoCatalogo("optional", item)
+        ),
+      ]);
+
+      await carregarFormOptions();
+
       const payload = {
         external_id,
         category,
@@ -1998,11 +2062,7 @@ const Inventory = () => {
                           }
                           className={selectClass}
                           disabled={
-                            saving ||
-                            catalogSaving ||
-                            formOptionsSaving ||
-                            !form.category ||
-                            !form.make
+                            saving || catalogSaving || formOptionsSaving || !form.category || !form.make
                           }
                         >
                           <option value="">Selecione</option>
@@ -2045,11 +2105,7 @@ const Inventory = () => {
                           placeholder="Novo modelo"
                           className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                           disabled={
-                            saving ||
-                            catalogSaving ||
-                            formOptionsSaving ||
-                            !form.category ||
-                            !form.make
+                            saving || catalogSaving || formOptionsSaving || !form.category || !form.make
                           }
                         />
 
@@ -2057,11 +2113,7 @@ const Inventory = () => {
                           type="button"
                           onClick={() => criarItemCatalogo("model")}
                           disabled={
-                            saving ||
-                            catalogSaving ||
-                            formOptionsSaving ||
-                            !form.category ||
-                            !form.make
+                            saving || catalogSaving || formOptionsSaving || !form.category || !form.make
                           }
                           className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                           title="Criar modelo"
@@ -3512,4 +3564,3 @@ const Inventory = () => {
 };
 
 export default Inventory;
-
