@@ -73,24 +73,6 @@ type CatalogItem = {
   updated_at?: string;
 };
 
-type FormOptionType =
-  | "title_clean"
-  | "fuel"
-  | "gear"
-  | "motor"
-  | "color"
-  | "version"
-  | "optional";
-
-type FormOptionItem = {
-  id: string;
-  option_type: FormOptionType;
-  value: string;
-  active: boolean;
-  created_at?: string;
-  updated_at?: string;
-};
-
 type FormState = {
   external_id: string;
   category: string;
@@ -190,37 +172,6 @@ const parseImagesText = (value: string) => {
     .filter(Boolean);
 };
 
-const uniqueSorted = (items: string[]) =>
-  Array.from(
-    new Set(items.map((item) => String(item || "").trim()).filter(Boolean))
-  ).sort((a, b) => a.localeCompare(b));
-
-const uniquePreserve = (items: string[]) => {
-  const seen = new Set<string>();
-
-  return items
-    .map((item) => String(item || "").trim())
-    .filter(Boolean)
-    .filter((item) => {
-      const key = normalizeText(item);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-};
-
-const parseOptionsText = (value: string) => {
-  return uniquePreserve(
-    String(value || "")
-      .replace(/\r/g, "")
-      .split(/\n|,/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-  );
-};
-
-const buildOptionsText = (items: string[]) => uniquePreserve(items).join(", ");
-
 const colorToHex = (color: string) => {
   const map: Record<string, string> = {
     azul: "1d4ed8",
@@ -270,11 +221,13 @@ const getVehicleImages = (vehicle: Vehicle) => {
   return [...existing, ...placeholders].slice(0, 6);
 };
 
+const uniqueSorted = (items: string[]) =>
+  Array.from(
+    new Set(items.map((item) => String(item || "").trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b));
+
 const withCurrent = (current: string, list: string[]) =>
   uniqueSorted(current ? [...list, current] : [...list]);
-
-const withManyCurrent = (current: string[], list: string[]) =>
-  uniqueSorted([...list, ...current]);
 
 const Inventory = () => {
   const navigate = useNavigate();
@@ -298,9 +251,6 @@ const Inventory = () => {
   const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
   const [catalogSaving, setCatalogSaving] = useState(false);
 
-  const [formOptions, setFormOptions] = useState<FormOptionItem[]>([]);
-  const [formOptionsSaving, setFormOptionsSaving] = useState(false);
-
   const [novoCatalogo, setNovoCatalogo] = useState({
     category: "",
     make: "",
@@ -308,14 +258,11 @@ const Inventory = () => {
     base_model: "",
   });
 
-  const [novoAtributo, setNovoAtributo] = useState<Record<FormOptionType, string>>({
-    title_clean: "",
+  const [novoAtributo, setNovoAtributo] = useState({
     fuel: "",
     gear: "",
-    motor: "",
     color: "",
     version: "",
-    optional: "",
   });
 
   const [cadastroAberto, setCadastroAberto] = useState(false);
@@ -333,7 +280,6 @@ const Inventory = () => {
   const [uploadingImages, setUploadingImages] = useState(false);
 
   const [galleryModal, setGalleryModal] = useState<GalleryModalState>(null);
-  const [selectedOptionals, setSelectedOptionals] = useState<string[]>([]);
 
   const [form, setForm] = useState<FormState>(emptyForm());
 
@@ -434,32 +380,6 @@ const Inventory = () => {
     }));
   };
 
-  const syncSelectedOptionals = (items: string[]) => {
-    const normalized = uniquePreserve(items);
-    setSelectedOptionals(normalized);
-    setForm((prev) => ({
-      ...prev,
-      options_clean: buildOptionsText(normalized),
-    }));
-  };
-
-  const toggleOptional = (value: string) => {
-    const exists = selectedOptionals.some(
-      (item) => normalizeText(item) === normalizeText(value)
-    );
-
-    if (exists) {
-      syncSelectedOptionals(
-        selectedOptionals.filter(
-          (item) => normalizeText(item) !== normalizeText(value)
-        )
-      );
-      return;
-    }
-
-    syncSelectedOptionals([...selectedOptionals, value]);
-  };
-
   const extractStoragePathFromUrl = (url: string) => {
     const bucket = "Vehicles-Joinha";
     const marker = `/storage/v1/object/public/${bucket}/`;
@@ -476,6 +396,10 @@ const Inventory = () => {
     );
   };
 
+  // AJUSTE:
+  // O inventário não deve mais depender do catálogo ativo para exibir veículos.
+  // Assim, se uma marca/modelo for removido do catálogo, os veículos já cadastrados
+  // continuam visíveis e editáveis normalmente.
   const getVehiclesCatalogoAtivo = (listaBase: Vehicle[]) => {
     return [...listaBase];
   };
@@ -561,72 +485,10 @@ const Inventory = () => {
     }
   };
 
-  const carregarFormOptions = async () => {
-    try {
-      const { data, error } = await (supabase as any)
-        .from("vehicles_joinha_form_options")
-        .select("*")
-        .eq("active", true)
-        .order("option_type", { ascending: true })
-        .order("value", { ascending: true });
-
-      if (error) throw error;
-
-      setFormOptions((data || []) as FormOptionItem[]);
-    } catch (error: any) {
-      console.error("Erro ao carregar opções do formulário:", error);
-      showError(error?.message || "Não foi possível carregar as opções do formulário.");
-    }
-  };
-
-  const normalizarOpcaoFormulario = (
-    type: FormOptionType,
-    value: string
-  ) => {
-    const clean = String(value || "").trim();
-    if (type === "title_clean") return clean.toUpperCase();
-    return clean;
-  };
-
-  const garantirOpcaoNoCatalogo = async (
-    type: FormOptionType,
-    value: string
-  ) => {
-    const clean = normalizarOpcaoFormulario(type, value);
-    if (!clean) return;
-
-    const { data, error } = await (supabase as any)
-      .from("vehicles_joinha_form_options")
-      .select("id")
-      .eq("active", true)
-      .eq("option_type", type)
-      .ilike("value", clean)
-      .maybeSingle();
-
-    if (error && error.code !== "PGRST116") throw error;
-    if (data) return;
-
-    const now = new Date().toISOString();
-
-    const { error: insertError } = await (supabase as any)
-      .from("vehicles_joinha_form_options")
-      .insert({
-        option_type: type,
-        value: clean,
-        active: true,
-        created_at: now,
-        updated_at: now,
-      });
-
-    if (insertError) throw insertError;
-  };
-
-  
   useEffect(() => {
     if (canAccess) {
       carregarVehicles();
       carregarCatalogo();
-      carregarFormOptions();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canAccess]);
@@ -668,81 +530,6 @@ const Inventory = () => {
     [catalogItems]
   );
 
-  const titleCleanOptions = useMemo(
-    () =>
-      uniqueSorted(
-        formOptions
-          .filter((item) => item.option_type === "title_clean")
-          .map((item) => item.value || "")
-      ),
-    [formOptions]
-  );
-
-  const fuels = useMemo(
-    () =>
-      uniqueSorted(
-        formOptions
-          .filter((item) => item.option_type === "fuel")
-          .map((item) => item.value || "")
-      ),
-    [formOptions]
-  );
-
-  const gears = useMemo(
-    () =>
-      uniqueSorted(
-        formOptions
-          .filter((item) => item.option_type === "gear")
-          .map((item) => item.value || "")
-      ),
-    [formOptions]
-  );
-
-  const motors = useMemo(
-    () =>
-      uniqueSorted(
-        formOptions
-          .filter((item) => item.option_type === "motor")
-          .map((item) => item.value || "")
-      ),
-    [formOptions]
-  );
-
-  const colors = useMemo(
-    () =>
-      uniqueSorted(
-        formOptions
-          .filter((item) => item.option_type === "color")
-          .map((item) => item.value || "")
-      ),
-    [formOptions]
-  );
-
-  const versions = useMemo(
-    () =>
-      uniqueSorted(
-        formOptions
-          .filter((item) => item.option_type === "version")
-          .map((item) => item.value || "")
-      ),
-    [formOptions]
-  );
-
-  const optionalCatalogOptions = useMemo(
-    () =>
-      uniqueSorted(
-        formOptions
-          .filter((item) => item.option_type === "optional")
-          .map((item) => item.value || "")
-      ),
-    [formOptions]
-  );
-
-  const optionalChoices = useMemo(
-    () => withManyCurrent(selectedOptionals, optionalCatalogOptions),
-    [selectedOptionals, optionalCatalogOptions]
-  );
-
   const vehiclesDoCatalogoAtivo = useMemo(() => {
     return getVehiclesCatalogoAtivo(vehicles);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -763,6 +550,26 @@ const Inventory = () => {
     () =>
       vehiclesDoCatalogoAtivo.filter((item) => item.available === false).length,
     [vehiclesDoCatalogoAtivo]
+  );
+
+  const fuels = useMemo(
+    () => uniqueSorted(vehicles.map((item) => item.fuel)),
+    [vehicles]
+  );
+
+  const gears = useMemo(
+    () => uniqueSorted(vehicles.map((item) => item.gear)),
+    [vehicles]
+  );
+
+  const colors = useMemo(
+    () => uniqueSorted(vehicles.map((item) => item.color)),
+    [vehicles]
+  );
+
+  const versions = useMemo(
+    () => uniqueSorted(vehicles.map((item) => item.version || "")),
+    [vehicles]
   );
 
   const marcasDaCategoriaForm = useMemo(() => {
@@ -865,18 +672,6 @@ const Inventory = () => {
     setUploadingImages(false);
   };
 
-  const resetNovoAtributo = () => {
-    setNovoAtributo({
-      title_clean: "",
-      fuel: "",
-      gear: "",
-      motor: "",
-      color: "",
-      version: "",
-      optional: "",
-    });
-  };
-
   const abrirCadastro = () => {
     if (!canEditInventory) return;
 
@@ -896,9 +691,7 @@ const Inventory = () => {
       available: true,
     });
 
-    syncSelectedOptionals([]);
     resetImageState();
-    resetNovoAtributo();
     setCadastroAberto(true);
     scrollToForm();
   };
@@ -916,8 +709,6 @@ const Inventory = () => {
         url,
         path: null,
       }));
-
-    const parsedOptionals = parseOptionsText(vehicle.options_clean || "");
 
     setEditingVehicle(vehicle);
     setForm({
@@ -950,25 +741,20 @@ const Inventory = () => {
       images_large_text: existingImages.map((item) => item.url).join("\n"),
       available: vehicle.available !== false,
       description_clean: vehicle.description_clean || "",
-      options_clean: buildOptionsText(parsedOptionals),
+      options_clean: vehicle.options_clean || "",
       version: vehicle.version || "",
     });
-
     setVehicleImages(existingImages);
     setPreviewImageIndex(0);
-    syncSelectedOptionals(parsedOptionals);
-    resetNovoAtributo();
     setCadastroAberto(true);
     scrollToForm();
+  };
 
-    
   const fecharCadastro = () => {
-    if (saving || catalogSaving || formOptionsSaving) return;
+    if (saving || catalogSaving) return;
     setCadastroAberto(false);
     setEditingVehicle(null);
-    syncSelectedOptionals([]);
     resetImageState();
-    resetNovoAtributo();
   };
 
   const atualizarCampo = (campo: keyof FormState, value: string | boolean) => {
@@ -985,160 +771,29 @@ const Inventory = () => {
     return clean;
   };
 
-  const criarOpcaoFormulario = async (type: FormOptionType) => {
-    if (!canEditInventory) return;
-
-    const rawValue = novoAtributo[type]?.trim();
-    const value = normalizarOpcaoFormulario(type, rawValue);
-
-    if (!value) {
-      showError("Digite o nome da opção.");
-      return;
-    }
-
-    const exists = formOptions.some(
-      (item) =>
-        item.option_type === type &&
-        normalizeText(item.value || "") === normalizeText(value)
-    );
-
-    try {
-      setFormOptionsSaving(true);
-
-      if (!exists) {
-        const now = new Date().toISOString();
-
-        const { error } = await (supabase as any)
-          .from("vehicles_joinha_form_options")
-          .insert({
-            option_type: type,
-            value,
-            active: true,
-            created_at: now,
-            updated_at: now,
-          });
-
-        if (error) throw error;
-      }
-
-      setNovoAtributo((prev) => ({
-        ...prev,
-        [type]: "",
-      }));
-
-      if (type === "optional") {
-        syncSelectedOptionals([...selectedOptionals, value]);
-      } else if (type === "title_clean") {
-        atualizarCampo("title_clean", value);
-      } else if (type === "fuel") {
-        atualizarCampo("fuel", value);
-      } else if (type === "gear") {
-        atualizarCampo("gear", value);
-      } else if (type === "motor") {
-        atualizarCampo("motor", value);
-      } else if (type === "color") {
-        atualizarCampo("color", value);
-      } else if (type === "version") {
-        atualizarCampo("version", value);
-      }
-
-      await carregarFormOptions();
-      showSuccess(exists ? "Opção aplicada." : "Opção criada com sucesso.");
-    } catch (error: any) {
-      console.error("Erro ao criar opção do formulário:", error);
-      showError(error?.message || "Não foi possível criar a opção.");
-    } finally {
-      setFormOptionsSaving(false);
-    }
-  };
-
-  const deletarOpcaoFormulario = async (
-    type: FormOptionType,
-    explicitValue?: string
+  const aplicarNovoAtributo = (
+    campo: "fuel" | "gear" | "color" | "version"
   ) => {
     if (!canEditInventory) return;
 
-    const value =
-      explicitValue?.trim() ||
-      (type === "optional" ? "" : String(form[type === "title_clean" ? "title_clean" : type] || "").trim());
+    const value = novoAtributo[campo].trim();
 
     if (!value) {
-      return showError("Selecione uma opção para excluir.");
+      showError("Digite uma nova opção.");
+      return;
     }
 
-    const idsParaDeletar = formOptions
-      .filter(
-        (item) =>
-          item.option_type === type &&
-          normalizeText(item.value || "") === normalizeText(value)
-      )
-      .map((item) => item.id);
+    setForm((prev) => ({
+      ...prev,
+      [campo]: value,
+    }));
 
-    if (idsParaDeletar.length === 0) {
-      return showError("Opção não encontrada no catálogo.");
-    }
+    setNovoAtributo((prev) => ({
+      ...prev,
+      [campo]: "",
+    }));
 
-    const confirmar = window.confirm(
-      "Deseja excluir essa opção do catálogo? Isso não vai mexer nos veículos já cadastrados."
-    );
-
-    if (!confirmar) return;
-
-    try {
-      setFormOptionsSaving(true);
-
-      const now = new Date().toISOString();
-
-      const { error } = await (supabase as any)
-        .from("vehicles_joinha_form_options")
-        .update({
-          active: false,
-          updated_at: now,
-        })
-        .in("id", idsParaDeletar);
-
-      if (error) throw error;
-
-      if (type === "optional") {
-        syncSelectedOptionals(
-          selectedOptionals.filter(
-            (item) => normalizeText(item) !== normalizeText(value)
-          )
-        );
-      } else if (type === "title_clean") {
-        if (normalizeText(form.title_clean) === normalizeText(value)) {
-          atualizarCampo("title_clean", "");
-        }
-      } else if (type === "fuel") {
-        if (normalizeText(form.fuel) === normalizeText(value)) {
-          atualizarCampo("fuel", "");
-        }
-      } else if (type === "gear") {
-        if (normalizeText(form.gear) === normalizeText(value)) {
-          atualizarCampo("gear", "");
-        }
-      } else if (type === "motor") {
-        if (normalizeText(form.motor) === normalizeText(value)) {
-          atualizarCampo("motor", "");
-        }
-      } else if (type === "color") {
-        if (normalizeText(form.color) === normalizeText(value)) {
-          atualizarCampo("color", "");
-        }
-      } else if (type === "version") {
-        if (normalizeText(form.version) === normalizeText(value)) {
-          atualizarCampo("version", "");
-        }
-      }
-
-      await carregarFormOptions();
-      showSuccess("Opção removida do catálogo sem alterar veículos cadastrados.");
-    } catch (error: any) {
-      console.error("Erro ao excluir opção do formulário:", error);
-      showError(error?.message || "Não foi possível excluir a opção.");
-    } finally {
-      setFormOptionsSaving(false);
-    }
+    showSuccess("Opção aplicada no veículo. Ao salvar, ela ficará disponível.");
   };
 
   const criarItemCatalogo = async (type: CatalogType) => {
@@ -1272,6 +927,8 @@ const Inventory = () => {
     }
   };
 
+  // AJUSTE:
+  // Excluir item do catálogo NÃO mexe mais nos veículos cadastrados.
   const deletarItemCatalogo = async (type: CatalogType) => {
     if (!canEditInventory) return;
 
@@ -1575,8 +1232,6 @@ const Inventory = () => {
     const gear = form.gear.trim();
     const motor = form.motor.trim();
     const color = form.color.trim();
-    const version = form.version.trim() || null;
-    const options_clean = buildOptionsText(selectedOptionals);
 
     if (!external_id) return showError("Informe o ID do veículo.");
     if (!category) return showError("Informe a categoria.");
@@ -1645,20 +1300,6 @@ const Inventory = () => {
     try {
       setSaving(true);
 
-      await Promise.all([
-        garantirOpcaoNoCatalogo("title_clean", title_clean),
-        garantirOpcaoNoCatalogo("fuel", fuel),
-        garantirOpcaoNoCatalogo("gear", gear),
-        garantirOpcaoNoCatalogo("motor", motor),
-        garantirOpcaoNoCatalogo("color", color),
-        garantirOpcaoNoCatalogo("version", version || ""),
-        ...selectedOptionals.map((item) =>
-          garantirOpcaoNoCatalogo("optional", item)
-        ),
-      ]);
-
-      await carregarFormOptions();
-
       const payload = {
         external_id,
         category,
@@ -1680,8 +1321,8 @@ const Inventory = () => {
         images_large: parseImagesText(form.images_large_text),
         available: form.available,
         description_clean: form.description_clean.trim() || null,
-        options_clean: options_clean || null,
-        version,
+        options_clean: form.options_clean.trim() || null,
+        version: form.version.trim() || null,
         plate: form.plate.trim() || null,
         search_text: [
           external_id,
@@ -1699,8 +1340,7 @@ const Inventory = () => {
           color,
           form.plate.trim(),
           form.plate_final.trim(),
-          version || "",
-          options_clean,
+          form.version.trim(),
         ]
           .filter(Boolean)
           .join(" "),
@@ -1728,14 +1368,8 @@ const Inventory = () => {
       setCadastroAberto(false);
       setEditingVehicle(null);
       setForm(emptyForm());
-      syncSelectedOptionals([]);
       resetImageState();
-      resetNovoAtributo();
-      await Promise.all([
-        carregarVehicles(),
-        carregarCatalogo(),
-        carregarFormOptions(),
-      ]);
+      await Promise.all([carregarVehicles(), carregarCatalogo()]);
     } catch (error: any) {
       console.error("Erro ao salvar veículo:", error);
       showError(error?.message || "Não foi possível salvar o veículo.");
@@ -1825,7 +1459,6 @@ const Inventory = () => {
                 onClick={() => {
                   carregarVehicles();
                   carregarCatalogo();
-                  carregarFormOptions();
                 }}
                 variant="outline"
                 className="border-[#27455a] bg-transparent text-white hover:bg-[#0b1d2a] hover:text-white"
@@ -1864,7 +1497,7 @@ const Inventory = () => {
                     onClick={fecharCadastro}
                     variant="outline"
                     className="border-[#27455a] bg-transparent text-white hover:bg-[#0b1d2a] hover:text-white"
-                    disabled={saving || catalogSaving || formOptionsSaving}
+                    disabled={saving || catalogSaving}
                   >
                     <X size={16} className="mr-2" />
                     Fechar
@@ -1895,7 +1528,7 @@ const Inventory = () => {
                             }));
                           }}
                           className={selectClass}
-                          disabled={saving || catalogSaving || formOptionsSaving}
+                          disabled={saving || catalogSaving}
                         >
                           <option value="">Selecione</option>
                           {withCurrent(form.category, categorias).map((item) => (
@@ -1908,12 +1541,7 @@ const Inventory = () => {
                         <Button
                           type="button"
                           onClick={() => deletarItemCatalogo("category")}
-                          disabled={
-                            saving ||
-                            catalogSaving ||
-                            formOptionsSaving ||
-                            !form.category
-                          }
+                          disabled={saving || catalogSaving || !form.category}
                           variant="outline"
                           className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
                           title="Excluir categoria do catálogo"
@@ -1933,13 +1561,13 @@ const Inventory = () => {
                           }
                           placeholder="Nova categoria"
                           className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                          disabled={saving || catalogSaving || formOptionsSaving}
+                          disabled={saving || catalogSaving}
                         />
 
                         <Button
                           type="button"
                           onClick={() => criarItemCatalogo("category")}
-                          disabled={saving || catalogSaving || formOptionsSaving}
+                          disabled={saving || catalogSaving}
                           className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                           title="Criar categoria"
                         >
@@ -1966,9 +1594,7 @@ const Inventory = () => {
                             }));
                           }}
                           className={selectClass}
-                          disabled={
-                            saving || catalogSaving || formOptionsSaving || !form.category
-                          }
+                          disabled={saving || catalogSaving || !form.category}
                         >
                           <option value="">Selecione</option>
                           {withCurrent(form.make, marcasDaCategoriaForm).map(
@@ -1983,12 +1609,7 @@ const Inventory = () => {
                         <Button
                           type="button"
                           onClick={() => deletarItemCatalogo("make")}
-                          disabled={
-                            saving ||
-                            catalogSaving ||
-                            formOptionsSaving ||
-                            !form.make
-                          }
+                          disabled={saving || catalogSaving || !form.make}
                           variant="outline"
                           className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
                           title="Excluir marca do catálogo"
@@ -2008,17 +1629,13 @@ const Inventory = () => {
                           }
                           placeholder="Nova marca"
                           className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                          disabled={
-                            saving || catalogSaving || formOptionsSaving || !form.category
-                          }
+                          disabled={saving || catalogSaving || !form.category}
                         />
 
                         <Button
                           type="button"
                           onClick={() => criarItemCatalogo("make")}
-                          disabled={
-                            saving || catalogSaving || formOptionsSaving || !form.category
-                          }
+                          disabled={saving || catalogSaving || !form.category}
                           className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                           title="Criar marca"
                         >
@@ -2044,7 +1661,7 @@ const Inventory = () => {
                           }
                           className={selectClass}
                           disabled={
-                            saving || catalogSaving || formOptionsSaving || !form.category || !form.make
+                            saving || catalogSaving || !form.category || !form.make
                           }
                         >
                           <option value="">Selecione</option>
@@ -2061,12 +1678,7 @@ const Inventory = () => {
                         <Button
                           type="button"
                           onClick={() => deletarItemCatalogo("model")}
-                          disabled={
-                            saving ||
-                            catalogSaving ||
-                            formOptionsSaving ||
-                            !form.model
-                          }
+                          disabled={saving || catalogSaving || !form.model}
                           variant="outline"
                           className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
                           title="Excluir modelo do catálogo"
@@ -2087,7 +1699,7 @@ const Inventory = () => {
                           placeholder="Novo modelo"
                           className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
                           disabled={
-                            saving || catalogSaving || formOptionsSaving || !form.category || !form.make
+                            saving || catalogSaving || !form.category || !form.make
                           }
                         />
 
@@ -2095,7 +1707,7 @@ const Inventory = () => {
                           type="button"
                           onClick={() => criarItemCatalogo("model")}
                           disabled={
-                            saving || catalogSaving || formOptionsSaving || !form.category || !form.make
+                            saving || catalogSaving || !form.category || !form.make
                           }
                           className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                           title="Criar modelo"
@@ -2120,7 +1732,6 @@ const Inventory = () => {
                           disabled={
                             saving ||
                             catalogSaving ||
-                            formOptionsSaving ||
                             !form.category ||
                             !form.make ||
                             !form.model
@@ -2140,12 +1751,7 @@ const Inventory = () => {
                         <Button
                           type="button"
                           onClick={() => deletarItemCatalogo("base_model")}
-                          disabled={
-                            saving ||
-                            catalogSaving ||
-                            formOptionsSaving ||
-                            !form.base_model
-                          }
+                          disabled={saving || catalogSaving || !form.base_model}
                           variant="outline"
                           className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
                           title="Excluir modelo base do catálogo"
@@ -2168,7 +1774,6 @@ const Inventory = () => {
                           disabled={
                             saving ||
                             catalogSaving ||
-                            formOptionsSaving ||
                             !form.category ||
                             !form.make ||
                             !form.model
@@ -2181,7 +1786,6 @@ const Inventory = () => {
                           disabled={
                             saving ||
                             catalogSaving ||
-                            formOptionsSaving ||
                             !form.category ||
                             !form.make ||
                             !form.model
@@ -2198,67 +1802,15 @@ const Inventory = () => {
                       <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                         Título limpo
                       </label>
-
-                      <div className="flex gap-2">
-                        <select
-                          value={form.title_clean}
-                          onChange={(e) =>
-                            atualizarCampo("title_clean", e.target.value)
-                          }
-                          className={selectClass}
-                          disabled={saving || catalogSaving || formOptionsSaving}
-                        >
-                          <option value="">Selecione</option>
-                          {withCurrent(form.title_clean, titleCleanOptions).map(
-                            (item) => (
-                              <option key={item} value={item}>
-                                {item}
-                              </option>
-                            )
-                          )}
-                        </select>
-
-                        <Button
-                          type="button"
-                          onClick={() => deletarOpcaoFormulario("title_clean")}
-                          disabled={
-                            saving ||
-                            catalogSaving ||
-                            formOptionsSaving ||
-                            !form.title_clean
-                          }
-                          variant="outline"
-                          className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
-                          title="Excluir título limpo do catálogo"
-                        >
-                          <X size={16} />
-                        </Button>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Input
-                          value={novoAtributo.title_clean}
-                          onChange={(e) =>
-                            setNovoAtributo((prev) => ({
-                              ...prev,
-                              title_clean: e.target.value,
-                            }))
-                          }
-                          placeholder="Novo título limpo"
-                          className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                          disabled={saving || catalogSaving || formOptionsSaving}
-                        />
-
-                        <Button
-                          type="button"
-                          onClick={() => criarOpcaoFormulario("title_clean")}
-                          disabled={saving || catalogSaving || formOptionsSaving}
-                          className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                          title="Criar título limpo"
-                        >
-                          <Plus size={16} />
-                        </Button>
-                      </div>
+                      <Input
+                        value={form.title_clean}
+                        onChange={(e) =>
+                          atualizarCampo("title_clean", e.target.value)
+                        }
+                        placeholder="HONDA CIVIC EXR"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                        disabled={saving}
+                      />
                     </div>
 
                     <div className="space-y-2">
@@ -2317,34 +1869,19 @@ const Inventory = () => {
                         Combustível
                       </label>
 
-                      <div className="flex gap-2">
-                        <select
-                          value={form.fuel}
-                          onChange={(e) => atualizarCampo("fuel", e.target.value)}
-                          className={selectClass}
-                          disabled={saving || catalogSaving || formOptionsSaving}
-                        >
-                          <option value="">Selecione</option>
-                          {withCurrent(form.fuel, fuels).map((item) => (
-                            <option key={item} value={item}>
-                              {item}
-                            </option>
-                          ))}
-                        </select>
-
-                        <Button
-                          type="button"
-                          onClick={() => deletarOpcaoFormulario("fuel")}
-                          disabled={
-                            saving || catalogSaving || formOptionsSaving || !form.fuel
-                          }
-                          variant="outline"
-                          className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
-                          title="Excluir combustível do catálogo"
-                        >
-                          <X size={16} />
-                        </Button>
-                      </div>
+                      <select
+                        value={form.fuel}
+                        onChange={(e) => atualizarCampo("fuel", e.target.value)}
+                        className={selectClass}
+                        disabled={saving}
+                      >
+                        <option value="">Selecione</option>
+                        {withCurrent(form.fuel, fuels).map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </select>
 
                       <div className="flex gap-2">
                         <Input
@@ -2357,15 +1894,15 @@ const Inventory = () => {
                           }
                           placeholder="Novo combustível"
                           className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                          disabled={saving || catalogSaving || formOptionsSaving}
+                          disabled={saving}
                         />
 
                         <Button
                           type="button"
-                          onClick={() => criarOpcaoFormulario("fuel")}
-                          disabled={saving || catalogSaving || formOptionsSaving}
+                          onClick={() => aplicarNovoAtributo("fuel")}
+                          disabled={saving}
                           className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                          title="Criar combustível"
+                          title="Aplicar novo combustível"
                         >
                           <Plus size={16} />
                         </Button>
@@ -2377,34 +1914,19 @@ const Inventory = () => {
                         Câmbio
                       </label>
 
-                      <div className="flex gap-2">
-                        <select
-                          value={form.gear}
-                          onChange={(e) => atualizarCampo("gear", e.target.value)}
-                          className={selectClass}
-                          disabled={saving || catalogSaving || formOptionsSaving}
-                        >
-                          <option value="">Selecione</option>
-                          {withCurrent(form.gear, gears).map((item) => (
-                            <option key={item} value={item}>
-                              {item}
-                            </option>
-                          ))}
-                        </select>
-
-                        <Button
-                          type="button"
-                          onClick={() => deletarOpcaoFormulario("gear")}
-                          disabled={
-                            saving || catalogSaving || formOptionsSaving || !form.gear
-                          }
-                          variant="outline"
-                          className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
-                          title="Excluir câmbio do catálogo"
-                        >
-                          <X size={16} />
-                        </Button>
-                      </div>
+                      <select
+                        value={form.gear}
+                        onChange={(e) => atualizarCampo("gear", e.target.value)}
+                        className={selectClass}
+                        disabled={saving}
+                      >
+                        <option value="">Selecione</option>
+                        {withCurrent(form.gear, gears).map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </select>
 
                       <div className="flex gap-2">
                         <Input
@@ -2417,15 +1939,15 @@ const Inventory = () => {
                           }
                           placeholder="Novo câmbio"
                           className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                          disabled={saving || catalogSaving || formOptionsSaving}
+                          disabled={saving}
                         />
 
                         <Button
                           type="button"
-                          onClick={() => criarOpcaoFormulario("gear")}
-                          disabled={saving || catalogSaving || formOptionsSaving}
+                          onClick={() => aplicarNovoAtributo("gear")}
+                          disabled={saving}
                           className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                          title="Criar câmbio"
+                          title="Aplicar novo câmbio"
                         >
                           <Plus size={16} />
                         </Button>
@@ -2436,60 +1958,13 @@ const Inventory = () => {
                       <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                         Motor
                       </label>
-
-                      <div className="flex gap-2">
-                        <select
-                          value={form.motor}
-                          onChange={(e) => atualizarCampo("motor", e.target.value)}
-                          className={selectClass}
-                          disabled={saving || catalogSaving || formOptionsSaving}
-                        >
-                          <option value="">Selecione</option>
-                          {withCurrent(form.motor, motors).map((item) => (
-                            <option key={item} value={item}>
-                              {item}
-                            </option>
-                          ))}
-                        </select>
-
-                        <Button
-                          type="button"
-                          onClick={() => deletarOpcaoFormulario("motor")}
-                          disabled={
-                            saving || catalogSaving || formOptionsSaving || !form.motor
-                          }
-                          variant="outline"
-                          className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
-                          title="Excluir motor do catálogo"
-                        >
-                          <X size={16} />
-                        </Button>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Input
-                          value={novoAtributo.motor}
-                          onChange={(e) =>
-                            setNovoAtributo((prev) => ({
-                              ...prev,
-                              motor: e.target.value,
-                            }))
-                          }
-                          placeholder="Novo motor"
-                          className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                          disabled={saving || catalogSaving || formOptionsSaving}
-                        />
-
-                        <Button
-                          type="button"
-                          onClick={() => criarOpcaoFormulario("motor")}
-                          disabled={saving || catalogSaving || formOptionsSaving}
-                          className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                          title="Criar motor"
-                        >
-                          <Plus size={16} />
-                        </Button>
-                      </div>
+                      <Input
+                        value={form.motor}
+                        onChange={(e) => atualizarCampo("motor", e.target.value)}
+                        placeholder="2.0"
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
+                        disabled={saving}
+                      />
                     </div>
 
                     <div className="space-y-2">
@@ -2513,34 +1988,19 @@ const Inventory = () => {
                         Cor
                       </label>
 
-                      <div className="flex gap-2">
-                        <select
-                          value={form.color}
-                          onChange={(e) => atualizarCampo("color", e.target.value)}
-                          className={selectClass}
-                          disabled={saving || catalogSaving || formOptionsSaving}
-                        >
-                          <option value="">Selecione</option>
-                          {withCurrent(form.color, colors).map((item) => (
-                            <option key={item} value={item}>
-                              {item}
-                            </option>
-                          ))}
-                        </select>
-
-                        <Button
-                          type="button"
-                          onClick={() => deletarOpcaoFormulario("color")}
-                          disabled={
-                            saving || catalogSaving || formOptionsSaving || !form.color
-                          }
-                          variant="outline"
-                          className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
-                          title="Excluir cor do catálogo"
-                        >
-                          <X size={16} />
-                        </Button>
-                      </div>
+                      <select
+                        value={form.color}
+                        onChange={(e) => atualizarCampo("color", e.target.value)}
+                        className={selectClass}
+                        disabled={saving}
+                      >
+                        <option value="">Selecione</option>
+                        {withCurrent(form.color, colors).map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </select>
 
                       <div className="flex gap-2">
                         <Input
@@ -2553,15 +2013,15 @@ const Inventory = () => {
                           }
                           placeholder="Nova cor"
                           className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                          disabled={saving || catalogSaving || formOptionsSaving}
+                          disabled={saving}
                         />
 
                         <Button
                           type="button"
-                          onClick={() => criarOpcaoFormulario("color")}
-                          disabled={saving || catalogSaving || formOptionsSaving}
+                          onClick={() => aplicarNovoAtributo("color")}
+                          disabled={saving}
                           className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                          title="Criar cor"
+                          title="Aplicar nova cor"
                         >
                           <Plus size={16} />
                         </Button>
@@ -2639,37 +2099,19 @@ const Inventory = () => {
                         Versão
                       </label>
 
-                      <div className="flex gap-2">
-                        <select
-                          value={form.version}
-                          onChange={(e) => atualizarCampo("version", e.target.value)}
-                          className={selectClass}
-                          disabled={saving || catalogSaving || formOptionsSaving}
-                        >
-                          <option value="">Selecione</option>
-                          {withCurrent(form.version, versions).map((item) => (
-                            <option key={item} value={item}>
-                              {item}
-                            </option>
-                          ))}
-                        </select>
-
-                        <Button
-                          type="button"
-                          onClick={() => deletarOpcaoFormulario("version")}
-                          disabled={
-                            saving ||
-                            catalogSaving ||
-                            formOptionsSaving ||
-                            !form.version
-                          }
-                          variant="outline"
-                          className="border-red-900/60 bg-transparent text-red-400 hover:bg-red-950/30"
-                          title="Excluir versão do catálogo"
-                        >
-                          <X size={16} />
-                        </Button>
-                      </div>
+                      <select
+                        value={form.version}
+                        onChange={(e) => atualizarCampo("version", e.target.value)}
+                        className={selectClass}
+                        disabled={saving}
+                      >
+                        <option value="">Selecione</option>
+                        {withCurrent(form.version, versions).map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </select>
 
                       <div className="flex gap-2">
                         <Input
@@ -2682,15 +2124,15 @@ const Inventory = () => {
                           }
                           placeholder="Nova versão"
                           className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                          disabled={saving || catalogSaving || formOptionsSaving}
+                          disabled={saving}
                         />
 
                         <Button
                           type="button"
-                          onClick={() => criarOpcaoFormulario("version")}
-                          disabled={saving || catalogSaving || formOptionsSaving}
+                          onClick={() => aplicarNovoAtributo("version")}
+                          disabled={saving}
                           className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                          title="Criar versão"
+                          title="Aplicar nova versão"
                         >
                           <Plus size={16} />
                         </Button>
@@ -2729,7 +2171,6 @@ const Inventory = () => {
                             disabled={
                               saving ||
                               catalogSaving ||
-                              formOptionsSaving ||
                               uploadingImages ||
                               vehicleImages.length >= 10
                             }
@@ -2877,125 +2318,19 @@ const Inventory = () => {
                       </div>
                     </div>
 
-                    <div className="space-y-3 xl:col-span-2">
+                    <div className="space-y-2 xl:col-span-2">
                       <label className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                         Opções / opcionais
                       </label>
-
-                      <div className="rounded-2xl border border-[#1c3b4f] bg-[#07131f] p-4 space-y-4">
-                        <div>
-                          <p className="text-sm font-semibold text-white">
-                            Checklist de opcionais
-                          </p>
-                          <p className="text-xs text-slate-400 mt-1">
-                            Marque os opcionais do veículo, crie novos quando
-                            precisar e apague do catálogo sem mexer nos veículos já salvos.
-                          </p>
-                        </div>
-
-                        {optionalChoices.length > 0 ? (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {optionalChoices.map((item) => {
-                              const checked = selectedOptionals.some(
-                                (selected) =>
-                                  normalizeText(selected) === normalizeText(item)
-                              );
-
-                              return (
-                                <div
-                                  key={item}
-                                  className="flex items-center justify-between gap-3 rounded-xl border border-[#1c3b4f] bg-[#081521] px-3 py-2"
-                                >
-                                  <label className="flex items-center gap-3 text-sm text-white cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={checked}
-                                      onChange={() => toggleOptional(item)}
-                                      className="h-4 w-4 accent-[#2aa7b8]"
-                                      disabled={
-                                        saving || catalogSaving || formOptionsSaving
-                                      }
-                                    />
-                                    <span>{item}</span>
-                                  </label>
-
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      deletarOpcaoFormulario("optional", item)
-                                    }
-                                    disabled={
-                                      saving || catalogSaving || formOptionsSaving
-                                    }
-                                    className="rounded-full border border-red-900/60 bg-transparent p-1 text-red-400 hover:bg-red-950/30"
-                                    title="Excluir opcional do catálogo"
-                                  >
-                                    <X size={14} />
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="rounded-xl border border-dashed border-[#27455a] bg-[#081521] p-4 text-sm text-slate-400">
-                            Nenhum opcional cadastrado ainda.
-                          </div>
-                        )}
-
-                        <div className="flex gap-2">
-                          <Input
-                            value={novoAtributo.optional}
-                            onChange={(e) =>
-                              setNovoAtributo((prev) => ({
-                                ...prev,
-                                optional: e.target.value,
-                              }))
-                            }
-                            placeholder="Novo opcional"
-                            className="bg-[#0b1d2a] border-[#1c3b4f] text-white"
-                            disabled={saving || catalogSaving || formOptionsSaving}
-                          />
-
-                          <Button
-                            type="button"
-                            onClick={() => criarOpcaoFormulario("optional")}
-                            disabled={saving || catalogSaving || formOptionsSaving}
-                            className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
-                            title="Criar opcional"
-                          >
-                            <Plus size={16} />
-                          </Button>
-                        </div>
-
-                        <div className="space-y-2">
-                          <p className="text-xs uppercase tracking-widest text-slate-400 font-bold">
-                            Selecionados
-                          </p>
-
-                          {selectedOptionals.length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                              {selectedOptionals.map((item) => (
-                                <span
-                                  key={item}
-                                  className="rounded-full border border-[#1c3b4f] bg-[#081521] px-3 py-1 text-xs text-white"
-                                >
-                                  {item}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-slate-400">
-                              Nenhum opcional selecionado.
-                            </p>
-                          )}
-
-                          <Textarea
-                            value={form.options_clean}
-                            readOnly
-                            className="bg-[#0b1d2a] border-[#1c3b4f] text-white min-h-[90px]"
-                          />
-                        </div>
-                      </div>
+                      <Textarea
+                        value={form.options_clean}
+                        onChange={(e) =>
+                          atualizarCampo("options_clean", e.target.value)
+                        }
+                        placeholder="Ar-condicionado, direção elétrica..."
+                        className="bg-[#0b1d2a] border-[#1c3b4f] text-white min-h-[100px]"
+                        disabled={saving}
+                      />
                     </div>
 
                     <div className="space-y-2 xl:col-span-2">
@@ -3038,15 +2373,15 @@ const Inventory = () => {
                   <div className="flex flex-wrap gap-3">
                     <Button
                       type="submit"
-                      disabled={saving || catalogSaving || formOptionsSaving}
+                      disabled={saving || catalogSaving}
                       className="bg-[#2aa7b8] hover:bg-[#2396a6] text-white font-black"
                     >
                       {saving ? "Salvando alterações..." : "Salvar alterações"}
                     </Button>
 
-                    {(catalogSaving || formOptionsSaving) && (
+                    {catalogSaving && (
                       <span className="text-sm text-slate-400 self-center">
-                        Atualizando catálogos...
+                        Atualizando catálogo...
                       </span>
                     )}
                   </div>
