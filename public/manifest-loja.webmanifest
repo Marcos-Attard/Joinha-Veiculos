@@ -1,6 +1,6 @@
 ﻿{
-  "id": "/loja-v12",
-  "name": "Joinha VeÃ­culos",
+  "id": "/loja-v20",
+  "name": "Joinha Veículos",
   "short_name": "Joinha",
   "start_url": "/",
   "scope": "/",
@@ -9,25 +9,22 @@
   "theme_color": "#081521",
   "icons": [
     {
-      "src": "/joinha-loja-icon-v12-192.png",
+      "src": "/joinha-loja-icon-v20-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/joinha-loja-icon-v12-512.png",
+      "src": "/joinha-loja-icon-v20-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/joinha-loja-icon-v12-1024.png",
+      "src": "/joinha-loja-icon-v20-1024.png",
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "maskable"
     }
   ]
 }
-
-
-

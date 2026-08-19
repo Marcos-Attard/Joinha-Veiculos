@@ -1,5 +1,5 @@
 ﻿{
-  "id": "/staff-v12",
+  "id": "/staff-v20",
   "name": "Joinha Staff",
   "short_name": "Joinha Staff",
   "start_url": "/login",
@@ -9,25 +9,22 @@
   "theme_color": "#081521",
   "icons": [
     {
-      "src": "/joinha-staff-icon-v12-192.png",
+      "src": "/joinha-staff-icon-v20-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/joinha-staff-icon-v12-512.png",
+      "src": "/joinha-staff-icon-v20-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/joinha-staff-icon-v12-1024.png",
+      "src": "/joinha-staff-icon-v20-1024.png",
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "maskable"
     }
   ]
 }
-
-
-
