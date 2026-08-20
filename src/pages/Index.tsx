@@ -371,7 +371,6 @@ const Index = () => {
         if (permissao !== "granted") {
           setPushStatus("Permissão de notificações não foi concedida.");
           setPushAtivo(false);
-          setVerificandoPush(false);
           return;
         }
       }
@@ -491,9 +490,7 @@ const Index = () => {
               </p>
             )}
 
-            {pushStatus && (
-              <p className="text-sm text-zinc-400">{pushStatus}</p>
-            )}
+            {pushStatus && <p className="text-sm text-zinc-400">{pushStatus}</p>}
 
             <div className="flex flex-wrap gap-3">
               {!pushAtivo && !verificandoPush && (
@@ -531,9 +528,7 @@ const Index = () => {
                   </span>
                   <Car size={18} className="text-blue-400" />
                 </div>
-                <div className="text-4xl font-black text-white">
-                  {estoqueCount}
-                </div>
+                <div className="text-4xl font-black text-white">{estoqueCount}</div>
               </CardContent>
             </Card>
 
@@ -545,9 +540,7 @@ const Index = () => {
                   </span>
                   <Users size={18} className="text-yellow-400" />
                 </div>
-                <div className="text-4xl font-black text-white">
-                  {leadsCount}
-                </div>
+                <div className="text-4xl font-black text-white">{leadsCount}</div>
               </CardContent>
             </Card>
 
@@ -559,9 +552,7 @@ const Index = () => {
                   </span>
                   <TrendingUp size={18} className="text-emerald-400" />
                 </div>
-                <div className="text-4xl font-black text-white">
-                  {novosHojeCount}
-                </div>
+                <div className="text-4xl font-black text-white">{novosHojeCount}</div>
               </CardContent>
             </Card>
 
@@ -610,9 +601,7 @@ const Index = () => {
                   </div>
 
                   <div>
-                    <div className="text-4xl font-black text-white">
-                      {gerentesTotal}
-                    </div>
+                    <div className="text-4xl font-black text-white">{gerentesTotal}</div>
                     <p className="text-xs text-zinc-500 mt-2">
                       {gerentesAtivos} ativos • {gerentesInativos} inativos
                     </p>
