@@ -43,11 +43,9 @@ const Index = () => {
   const [pushAtivo, setPushAtivo] = useState(false);
   const [verificandoPush, setVerificandoPush] = useState(true);
 
-  // Paleta azul do app
   const cardClass = "bg-[#0f1d2b] border-[#1b3145]";
   const cardAltClass = "bg-[#101f30] border-[#1b3145]";
   const panelClass = "bg-[#0b1623] border-[#173146]";
-  const imageAreaClass = "bg-[#07111b]";
   const hoverBlue = "hover:bg-[#13283b]";
 
   useEffect(() => {
@@ -179,6 +177,66 @@ const Index = () => {
   const esperar = (ms: number) =>
     new Promise((resolve) => setTimeout(resolve, ms));
 
+  const getOneSignalInstance = async () => {
+    if (typeof window === "undefined") return null;
+
+    const w = window as any;
+
+    if (w.OneSignal && (w.OneSignal.User || w.OneSignal.Notifications)) {
+      return w.OneSignal;
+    }
+
+    return new Promise<any>((resolve) => {
+      w.OneSignalDeferred = w.OneSignalDeferred || [];
+      let resolved = false;
+
+      const finish = (instance: any) => {
+        if (resolved) return;
+        resolved = true;
+        resolve(instance || null);
+      };
+
+      w.OneSignalDeferred.push((OneSignal: any) => {
+        finish(OneSignal);
+      });
+
+      setTimeout(() => finish(w.OneSignal || null), 10000);
+    });
+  };
+
+  const getSubscriptionId = (OneSignal: any): string | null => {
+    return (
+      OneSignal?.User?.PushSubscription?.id ||
+      OneSignal?.User?.pushSubscription?.id ||
+      OneSignal?.Subscription?.id ||
+      OneSignal?.pushSubscription?.id ||
+      null
+    );
+  };
+
+  const getOptedIn = (OneSignal: any): boolean => {
+    return !!(
+      OneSignal?.User?.PushSubscription?.optedIn ||
+      OneSignal?.User?.pushSubscription?.optedIn ||
+      false
+    );
+  };
+
+  const waitForSubscriptionId = async (
+    OneSignal: any,
+    timeoutMs = 45000
+  ): Promise<string | null> => {
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+      const subscriptionId = getSubscriptionId(OneSignal);
+      if (subscriptionId) return subscriptionId;
+      await esperar(1500);
+    }
+
+    return null;
+  };
+
   const sincronizarSubscriptionDoVendedor = async (
     subscriptionId: string | null
   ) => {
@@ -212,24 +270,6 @@ const Index = () => {
     }
   };
 
-  const obterSubscriptionId = (OneSignal: any): string | null => {
-    return (
-      OneSignal?.User?.PushSubscription?.id ||
-      OneSignal?.User?.pushSubscription?.id ||
-      OneSignal?.Subscription?.id ||
-      OneSignal?.pushSubscription?.id ||
-      null
-    );
-  };
-
-  const obterOptedIn = (OneSignal: any): boolean => {
-    return !!(
-      OneSignal?.User?.PushSubscription?.optedIn ||
-      OneSignal?.User?.pushSubscription?.optedIn ||
-      false
-    );
-  };
-
   const lerEstadoPush = async (OneSignal: any) => {
     const permissao =
       typeof Notification !== "undefined"
@@ -241,8 +281,8 @@ const Index = () => {
 
     for (let i = 0; i < 12; i++) {
       try {
-        optedIn = obterOptedIn(OneSignal);
-        subscriptionId = obterSubscriptionId(OneSignal);
+        optedIn = getOptedIn(OneSignal);
+        subscriptionId = getSubscriptionId(OneSignal);
 
         if (subscriptionId) break;
       } catch (error) {
@@ -269,51 +309,45 @@ const Index = () => {
     }
 
     try {
-      if (typeof window === "undefined") {
+      setVerificandoPush(true);
+
+      const OneSignal = await getOneSignalInstance();
+
+      if (!OneSignal) {
+        setPushStatus("OneSignal ainda não carregou neste celular.");
+        setPushAtivo(false);
         setVerificandoPush(false);
         return;
       }
 
-      const w = window as any;
-      w.OneSignalDeferred = w.OneSignalDeferred || [];
+      setPushStatus("Verificando notificações neste celular...");
 
-      w.OneSignalDeferred.push(async (OneSignal: any) => {
-        try {
-          setPushStatus("Verificando notificações neste celular...");
+      const estado = await lerEstadoPush(OneSignal);
 
-          const estado = await lerEstadoPush(OneSignal);
+      setPushAtivo(estado.ativo);
 
-          setPushAtivo(estado.ativo);
+      if (estado.ativo && estado.subscriptionId) {
+        const salvou = await sincronizarSubscriptionDoVendedor(
+          estado.subscriptionId
+        );
 
-          if (estado.ativo && estado.subscriptionId) {
-            const salvou = await sincronizarSubscriptionDoVendedor(
-              estado.subscriptionId
-            );
-
-            if (salvou) {
-              setPushStatus("Push ativo e sincronizado neste celular.");
-              setPushAtivo(true);
-            } else {
-              setPushStatus("Push ativo, mas não foi possível sincronizar o ID.");
-              setPushAtivo(false);
-            }
-          } else {
-            setPushStatus("Notificações ainda não ativadas neste celular.");
-            setPushAtivo(false);
-          }
-        } catch (error) {
-          console.error("Erro ao verificar/sincronizar push:", error);
+        if (salvou) {
+          setPushStatus("Push ativo e sincronizado neste celular.");
+          setPushAtivo(true);
+        } else {
+          setPushStatus("Push ativo, mas não foi possível sincronizar o ID.");
           setPushAtivo(false);
-          setPushStatus("Não foi possível verificar as notificações.");
-        } finally {
-          setVerificandoPush(false);
         }
-      });
+      } else {
+        setPushStatus("Notificações ainda não ativadas neste celular.");
+        setPushAtivo(false);
+      }
     } catch (error) {
-      console.error("Erro ao iniciar verificação do push:", error);
-      setVerificandoPush(false);
+      console.error("Erro ao verificar/sincronizar push:", error);
       setPushAtivo(false);
-      setPushStatus("Erro ao iniciar verificação das notificações.");
+      setPushStatus("Não foi possível verificar as notificações.");
+    } finally {
+      setVerificandoPush(false);
     }
   };
 
@@ -326,65 +360,62 @@ const Index = () => {
     setVerificandoPush(true);
 
     try {
-      if (typeof window !== "undefined" && "Notification" in window) {
-        if (Notification.permission !== "granted") {
-          setPushStatus("Solicitando permissão de notificações...");
-          const permissao = await Notification.requestPermission();
+      if (
+        typeof window !== "undefined" &&
+        "Notification" in window &&
+        Notification.permission !== "granted"
+      ) {
+        setPushStatus("Solicitando permissão de notificações...");
+        const permissao = await Notification.requestPermission();
 
-          if (permissao !== "granted") {
-            setPushStatus("Permissão de notificações não foi concedida.");
-            setPushAtivo(false);
-            setVerificandoPush(false);
-            return;
-          }
+        if (permissao !== "granted") {
+          setPushStatus("Permissão de notificações não foi concedida.");
+          setPushAtivo(false);
+          setVerificandoPush(false);
+          return;
         }
       }
 
-      const w = window as any;
-      w.OneSignalDeferred = w.OneSignalDeferred || [];
+      const OneSignal = await getOneSignalInstance();
 
-      w.OneSignalDeferred.push(async (OneSignal: any) => {
-        try {
-          if (OneSignal?.User?.PushSubscription?.optIn) {
-            await OneSignal.User.PushSubscription.optIn();
-          } else if (OneSignal?.Notifications?.optIn) {
-            await OneSignal.Notifications.optIn();
-          }
+      if (!OneSignal) {
+        setPushStatus("OneSignal ainda não carregou neste celular.");
+        setPushAtivo(false);
+        return;
+      }
 
-          await esperar(2000);
-
-          const estado = await lerEstadoPush(OneSignal);
-
-          setPushAtivo(estado.ativo);
-
-          if (estado.ativo && estado.subscriptionId) {
-            const salvou = await sincronizarSubscriptionDoVendedor(
-              estado.subscriptionId
-            );
-
-            if (salvou) {
-              setPushStatus("Push ativo e sincronizado neste celular.");
-              setPushAtivo(true);
-            } else {
-              setPushStatus("Push ativo, mas não foi possível sincronizar o ID.");
-              setPushAtivo(false);
-            }
-          } else {
-            setPushStatus("Não foi possível ativar as notificações neste celular.");
-            setPushAtivo(false);
-          }
-        } catch (error) {
-          console.error("Erro ao ativar notificações:", error);
-          setPushStatus("Erro ao ativar notificações neste celular.");
-          setPushAtivo(false);
-        } finally {
-          setVerificandoPush(false);
+      try {
+        if (OneSignal?.User?.PushSubscription?.optIn) {
+          await OneSignal.User.PushSubscription.optIn();
+        } else if (OneSignal?.Notifications?.optIn) {
+          await OneSignal.Notifications.optIn();
         }
-      });
+      } catch (optInError) {
+        console.error("Erro ao chamar optIn do OneSignal:", optInError);
+      }
+
+      const subscriptionId = await waitForSubscriptionId(OneSignal, 60000);
+
+      if (!subscriptionId) {
+        setPushStatus("O OneSignal não retornou o ID da assinatura.");
+        setPushAtivo(false);
+        return;
+      }
+
+      const salvou = await sincronizarSubscriptionDoVendedor(subscriptionId);
+
+      if (salvou) {
+        setPushStatus("Push ativo e sincronizado neste celular.");
+        setPushAtivo(true);
+      } else {
+        setPushStatus("Push ativo, mas não foi possível sincronizar o ID.");
+        setPushAtivo(false);
+      }
     } catch (error) {
       console.error("Erro ao solicitar notificações:", error);
       setPushStatus("Erro ao solicitar permissão de notificações.");
       setPushAtivo(false);
+    } finally {
       setVerificandoPush(false);
     }
   };
