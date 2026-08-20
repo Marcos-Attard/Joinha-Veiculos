@@ -15,6 +15,7 @@ import {
   BellRing,
   Search,
   Shield,
+  RefreshCcw,
 } from "lucide-react";
 
 const Index = () => {
@@ -211,6 +212,24 @@ const Index = () => {
     }
   };
 
+  const obterSubscriptionId = (OneSignal: any): string | null => {
+    return (
+      OneSignal?.User?.PushSubscription?.id ||
+      OneSignal?.User?.pushSubscription?.id ||
+      OneSignal?.Subscription?.id ||
+      OneSignal?.pushSubscription?.id ||
+      null
+    );
+  };
+
+  const obterOptedIn = (OneSignal: any): boolean => {
+    return !!(
+      OneSignal?.User?.PushSubscription?.optedIn ||
+      OneSignal?.User?.pushSubscription?.optedIn ||
+      false
+    );
+  };
+
   const lerEstadoPush = async (OneSignal: any) => {
     const permissao =
       typeof Notification !== "undefined"
@@ -220,10 +239,10 @@ const Index = () => {
     let optedIn = false;
     let subscriptionId: string | null = null;
 
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 12; i++) {
       try {
-        optedIn = !!OneSignal?.User?.PushSubscription?.optedIn;
-        subscriptionId = OneSignal?.User?.PushSubscription?.id || null;
+        optedIn = obterOptedIn(OneSignal);
+        subscriptionId = obterSubscriptionId(OneSignal);
 
         if (subscriptionId) break;
       } catch (error) {
@@ -243,7 +262,7 @@ const Index = () => {
     };
   };
 
-  const verificarESincronizarPush = async (forcarPermissao = false) => {
+  const verificarESincronizarPush = async () => {
     if (!isVendedor) {
       setVerificandoPush(false);
       return;
@@ -262,28 +281,7 @@ const Index = () => {
         try {
           setPushStatus("Verificando notificações neste celular...");
 
-          let estado = await lerEstadoPush(OneSignal);
-
-          if (forcarPermissao && estado.permissao !== "granted") {
-            setPushStatus("Solicitando permissão de notificações...");
-
-            if (OneSignal?.Notifications?.requestPermission) {
-              await OneSignal.Notifications.requestPermission();
-            } else if ("Notification" in window) {
-              await Notification.requestPermission();
-            }
-
-            await esperar(1500);
-
-            if (OneSignal?.User?.PushSubscription?.optIn) {
-              await OneSignal.User.PushSubscription.optIn();
-            } else if (OneSignal?.Notifications?.optIn) {
-              await OneSignal.Notifications.optIn();
-            }
-
-            await esperar(2500);
-            estado = await lerEstadoPush(OneSignal);
-          }
+          const estado = await lerEstadoPush(OneSignal);
 
           setPushAtivo(estado.ativo);
 
@@ -320,13 +318,75 @@ const Index = () => {
   };
 
   useEffect(() => {
-    verificarESincronizarPush(true);
+    verificarESincronizarPush();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, vendedorId]);
 
   const ativarNotificacoes = async () => {
     setVerificandoPush(true);
-    await verificarESincronizarPush(true);
+
+    try {
+      if (typeof window !== "undefined" && "Notification" in window) {
+        if (Notification.permission !== "granted") {
+          setPushStatus("Solicitando permissão de notificações...");
+          const permissao = await Notification.requestPermission();
+
+          if (permissao !== "granted") {
+            setPushStatus("Permissão de notificações não foi concedida.");
+            setPushAtivo(false);
+            setVerificandoPush(false);
+            return;
+          }
+        }
+      }
+
+      const w = window as any;
+      w.OneSignalDeferred = w.OneSignalDeferred || [];
+
+      w.OneSignalDeferred.push(async (OneSignal: any) => {
+        try {
+          if (OneSignal?.User?.PushSubscription?.optIn) {
+            await OneSignal.User.PushSubscription.optIn();
+          } else if (OneSignal?.Notifications?.optIn) {
+            await OneSignal.Notifications.optIn();
+          }
+
+          await esperar(2000);
+
+          const estado = await lerEstadoPush(OneSignal);
+
+          setPushAtivo(estado.ativo);
+
+          if (estado.ativo && estado.subscriptionId) {
+            const salvou = await sincronizarSubscriptionDoVendedor(
+              estado.subscriptionId
+            );
+
+            if (salvou) {
+              setPushStatus("Push ativo e sincronizado neste celular.");
+              setPushAtivo(true);
+            } else {
+              setPushStatus("Push ativo, mas não foi possível sincronizar o ID.");
+              setPushAtivo(false);
+            }
+          } else {
+            setPushStatus("Não foi possível ativar as notificações neste celular.");
+            setPushAtivo(false);
+          }
+        } catch (error) {
+          console.error("Erro ao ativar notificações:", error);
+          setPushStatus("Erro ao ativar notificações neste celular.");
+          setPushAtivo(false);
+        } finally {
+          setVerificandoPush(false);
+        }
+      });
+    } catch (error) {
+      console.error("Erro ao solicitar notificações:", error);
+      setPushStatus("Erro ao solicitar permissão de notificações.");
+      setPushAtivo(false);
+      setVerificandoPush(false);
+    }
   };
 
   const vendedoresInativos = Math.max(vendedoresTotal - vendedoresAtivos, 0);
@@ -404,14 +464,27 @@ const Index = () => {
               <p className="text-sm text-zinc-400">{pushStatus}</p>
             )}
 
-            {!pushAtivo && !verificandoPush && (
-              <Button
-                onClick={ativarNotificacoes}
-                className="w-fit bg-[#d4af37] hover:bg-[#c39b2d] text-black font-black"
-              >
-                Ativar notificações neste celular
-              </Button>
-            )}
+            <div className="flex flex-wrap gap-3">
+              {!pushAtivo && !verificandoPush && (
+                <Button
+                  onClick={ativarNotificacoes}
+                  className="w-fit bg-[#d4af37] hover:bg-[#c39b2d] text-black font-black"
+                >
+                  Ativar notificações neste celular
+                </Button>
+              )}
+
+              {!verificandoPush && (
+                <Button
+                  onClick={verificarESincronizarPush}
+                  variant="outline"
+                  className="w-fit border-[#173146] bg-transparent text-white hover:bg-[#13283b] hover:text-white"
+                >
+                  <RefreshCcw size={16} className="mr-2" />
+                  Reverificar
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}

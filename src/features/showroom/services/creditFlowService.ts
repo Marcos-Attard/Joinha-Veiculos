@@ -257,7 +257,7 @@ export const confirmarEnvioLead = async (
     ).toISOString();
 
     // 1) Rodízio
-    const { data, error } = await supabase.rpc("proximo_vendedor_rodizio");
+    const { data, error } = await supabase.rpc("proximo_vendedor_rodizio_joinha");
 
     if (error) {
       showError("Não foi possível designar um vendedor: " + error.message);
