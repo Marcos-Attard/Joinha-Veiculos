@@ -1,10 +1,10 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title>Joinha VeÃ­culos</title>
+    <title>Joinha Veículos</title>
 
     <link
       id="app-icon"
@@ -33,13 +33,13 @@
     <meta
       id="app-name"
       name="application-name"
-      content="Joinha VeÃ­culos"
+      content="Joinha Veículos"
     />
 
     <meta
       id="app-apple-title"
       name="apple-mobile-web-app-title"
-      content="Joinha VeÃ­culos"
+      content="Joinha Veículos"
     />
 
     <meta name="theme-color" content="#081521" />
@@ -88,17 +88,17 @@
           if (appAppleTitle) appAppleTitle.setAttribute("content", "Joinha Staff");
         }
 
-        window.OneSignalDeferred = window.OneSignalDeferred || [];
+                window.OneSignalDeferred = window.OneSignalDeferred || [];
+        window.OneSignalDeferred.push(async function (OneSignal) {
+          await OneSignal.init({
+            appId: "4401049a-9c68-4c10-9f19-f05a9a55c2e9",
+            serviceWorkerPath: "OneSignalSDKWorker.js",
+            serviceWorkerUpdaterPath: "OneSignalSDKUpdaterWorker.js"
+          });
+        });
         var onesignalScript = document.createElement("script");
         onesignalScript.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
         onesignalScript.defer = true;
-        onesignalScript.onload = function () {
-          window.OneSignalDeferred.push(async function (OneSignal) {
-            await OneSignal.init({
-              appId: "4401049a-9c68-4c10-9f19-f05a9a55c2e9"
-            });
-          });
-        };
         document.head.appendChild(onesignalScript);
       })();
     </script>
@@ -109,6 +109,7 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+
 
 
 
