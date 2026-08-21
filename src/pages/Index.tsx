@@ -372,11 +372,11 @@ const Index = () => {
 
       try {
         if (OneSignal?.User?.PushSubscription?.optIn) {
-          await OneSignal.User.PushSubscription.optIn();
+          OneSignal.User.PushSubscription.optIn();
         } else if (OneSignal?.Notifications?.optIn) {
-          await OneSignal.Notifications.optIn();
+          OneSignal.Notifications.optIn();
         } else if (OneSignal?.Notifications?.requestPermission) {
-          await OneSignal.Notifications.requestPermission();
+          OneSignal.Notifications.requestPermission();
         }
       } catch (optInError) {
         console.error("Erro ao chamar optIn do OneSignal:", optInError);
