@@ -92,8 +92,8 @@
         window.OneSignalDeferred.push(async function (OneSignal) {
           await OneSignal.init({
             appId: "4401049a-9c68-4c10-9f19-f05a9a55c2e9",
-            serviceWorkerPath: "OneSignalSDKWorker.js",
-            serviceWorkerUpdaterPath: "OneSignalSDKUpdaterWorker.js"
+            serviceWorkerPath: "/OneSignalSDKWorker.js",
+            serviceWorkerUpdaterPath: "/OneSignalSDKUpdaterWorker.js"
           });
         });
         var onesignalScript = document.createElement("script");
@@ -109,6 +109,8 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+
+
 
 
 
