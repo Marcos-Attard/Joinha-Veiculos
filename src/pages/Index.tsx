@@ -360,21 +360,6 @@ const Index = () => {
     setVerificandoPush(true);
 
     try {
-      if (
-        typeof window !== "undefined" &&
-        "Notification" in window &&
-        Notification.permission !== "granted"
-      ) {
-        setPushStatus("Solicitando permissão de notificações...");
-        const permissao = await Notification.requestPermission();
-
-        if (permissao !== "granted") {
-          setPushStatus("Permissão de notificações não foi concedida.");
-          setPushAtivo(false);
-          return;
-        }
-      }
-
       const OneSignal = await getOneSignalInstance();
 
       if (!OneSignal) {
@@ -383,11 +368,15 @@ const Index = () => {
         return;
       }
 
+      setPushStatus("Ativando notificações neste celular...");
+
       try {
         if (OneSignal?.User?.PushSubscription?.optIn) {
           await OneSignal.User.PushSubscription.optIn();
         } else if (OneSignal?.Notifications?.optIn) {
           await OneSignal.Notifications.optIn();
+        } else if (OneSignal?.Notifications?.requestPermission) {
+          await OneSignal.Notifications.requestPermission();
         }
       } catch (optInError) {
         console.error("Erro ao chamar optIn do OneSignal:", optInError);
