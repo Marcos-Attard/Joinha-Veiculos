@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
+
 import { supabase } from "@/integrations/supabase/client";
+
 import {
   Table,
   TableBody,
@@ -8,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -70,6 +73,7 @@ interface Lead {
   parcela_cabivel?: number;
   parcela_nao_cabivel?: number;
   analise?: any;
+  parcelas_json?: any;
 }
 
 const LEADS_TABLE = "leads_credito_joinha";
@@ -89,11 +93,6 @@ const Leads = () => {
     "adm",
     "administrador",
   ].includes(String(role).trim().toLowerCase());
-
-  const cardClass = "bg-[#0f1d2b] border-[#173146]";
-  const cardClassAlt = "bg-[#101f30] border-[#1b3145]";
-  const panelSoftClass = "bg-[#07111b]/70 border-[#173146]";
-  const tableClass = "bg-[#0b1623] border-[#173146]";
 
   useEffect(() => {
     const style = document.createElement("style");
@@ -168,11 +167,7 @@ const Leads = () => {
     return String(telefone || "").replace(/\D/g, "");
   };
 
-  const getWhatsAppLink = (
-    telefone: string,
-    nome: string,
-    veiculo: string
-  ) => {
+  const getWhatsAppLink = (telefone: string, nome: string, veiculo: string) => {
     const limpo = limparTelefone(telefone);
     if (!limpo || limpo.length < 10) return "#";
 
@@ -208,28 +203,87 @@ const Leads = () => {
     );
   };
 
-  const getAnalise = (lead: Lead) => {
-    if (!lead.analise) return null;
+  const parsePossivelJson = (valor: any) => {
+    if (!valor) return null;
 
-    if (typeof lead.analise === "string") {
+    if (typeof valor === "string") {
       try {
-        return JSON.parse(lead.analise);
+        return JSON.parse(valor);
       } catch {
         return null;
       }
     }
 
-    return lead.analise;
+    return valor;
+  };
+
+  const normalizeText = (texto: any) =>
+    String(texto || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+
+  const getAnalise = (lead: Lead) => {
+    const analise = parsePossivelJson(lead.analise);
+    if (analise) return analise;
+
+    const parcelasJson = parsePossivelJson(lead.parcelas_json);
+    if (parcelasJson) {
+      return {
+        base_pre_aprovacao:
+          lead.base_pre_aprovacao ??
+          (lead as any).basePreAprovacao ??
+          lead.pre_aprovacao ??
+          (lead as any).preAprovacao ??
+          null,
+        limite_renda:
+          lead.base_pre_aprovacao ??
+          (lead as any).basePreAprovacao ??
+          lead.pre_aprovacao ??
+          (lead as any).preAprovacao ??
+          null,
+        parcelas:
+          Array.isArray(parcelasJson) || typeof parcelasJson === "object"
+            ? parcelasJson
+            : null,
+      };
+    }
+
+    return null;
   };
 
   const getBasePreAprovacao = (lead: Lead) => {
     const analise = getAnalise(lead);
-    return analise?.base_pre_aprovacao ?? lead.base_pre_aprovacao ?? null;
+
+    return (
+      analise?.base_pre_aprovacao ??
+      analise?.basePreAprovacao ??
+      analise?.limite_renda ??
+      lead.base_pre_aprovacao ??
+      (lead as any).basePreAprovacao ??
+      lead.pre_aprovacao ??
+      (lead as any).preAprovacao ??
+      lead.renda_limite ??
+      lead.renda_max ??
+      null
+    );
   };
 
-  const getLimiteRenda = (lead: Lead) => {
-    const analise = getAnalise(lead);
-    return analise?.limite_renda ?? lead.renda_limite ?? lead.renda_max ?? null;
+  const isInfoPreAprovado = (info: any) => {
+    if (!info) return false;
+
+    const status = normalizeText(info.status || info.statusCode || "");
+
+    return (
+      info.preAprovado === true ||
+      info.aprovado === true ||
+      status === "pre_aprovado" ||
+      status === "preaprovado" ||
+      status === "pré-aprovado" ||
+      status === "aprovado" ||
+      status === "true"
+    );
   };
 
   const getParcelaInfo = (
@@ -237,7 +291,52 @@ const Leads = () => {
     parcela: "12x" | "24x" | "36x" | "48x"
   ) => {
     const analise = getAnalise(lead);
-    return analise?.parcelas?.[parcela] ?? null;
+    const numeroParcela = Number(String(parcela).replace(/\D/g, ""));
+
+    if (analise?.parcelas) {
+      const parcelas = analise.parcelas;
+
+      if (Array.isArray(parcelas)) {
+        const encontrada = parcelas.find((item: any) => {
+          const itemParcela = Number(
+            String(item?.parcelas ?? item?.plano ?? item?.parcela ?? "")
+              .replace(/\D/g, "")
+          );
+          return itemParcela === numeroParcela;
+        });
+
+        if (encontrada) return encontrada;
+      } else if (typeof parcelas === "object") {
+        const possiveisChaves = [
+          parcela,
+          `${numeroParcela}`,
+          `${numeroParcela}x`,
+          `parcela_${numeroParcela}x`,
+        ];
+
+        for (const chave of possiveisChaves) {
+          if (parcelas[chave]) return parcelas[chave];
+        }
+      }
+    }
+
+    return {
+      valor:
+        numeroParcela === 12
+          ? lead.parcela_12x
+          : numeroParcela === 24
+          ? lead.parcela_24x
+          : numeroParcela === 36
+          ? lead.parcela_36x
+          : lead.parcela_48x,
+      status: "",
+      texto: "",
+      entrada_minima: null,
+      limite_renda: getBasePreAprovacao(lead),
+      base_pre_aprovacao: getBasePreAprovacao(lead),
+      preAprovado: false,
+      aprovado: false,
+    };
   };
 
   const fetchLeads = async () => {
@@ -314,6 +413,7 @@ const Leads = () => {
     return () => {
       supabase.removeChannel(channel);
     };
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -342,7 +442,7 @@ const Leads = () => {
     parcela: "12x" | "24x" | "36x" | "48x"
   ) => {
     const info = getParcelaInfo(lead, parcela);
-    const isPreAprovado = info?.status === "pre_aprovado";
+    const isPreAprovado = isInfoPreAprovado(info);
 
     return (
       <div
@@ -390,8 +490,14 @@ const Leads = () => {
           <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-black mb-1">
             Limite pela renda
           </div>
+
           <div className="text-emerald-400 font-bold">
-            {formatarMoeda(getLimiteRenda(lead))}
+            {formatarMoeda(
+              info?.limite_renda ??
+                info?.base_pre_aprovacao ??
+                info?.basePreAprovacao ??
+                getBasePreAprovacao(lead)
+            )}
           </div>
 
           <div className="mt-3 text-sm leading-relaxed">
@@ -409,16 +515,24 @@ const Leads = () => {
             </span>
           </div>
 
-          {!isPreAprovado && info?.entrada_minima !== undefined && (
-            <div className="mt-3">
-              <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-black">
-                Entrada mínima
+          {!isPreAprovado &&
+            (info?.entrada_minima !== undefined ||
+              info?.entradaNecessaria !== undefined ||
+              info?.entrada_necessaria !== undefined) && (
+              <div className="mt-3">
+                <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-black">
+                  Entrada mínima
+                </div>
+                <div className="text-yellow-400 font-black text-xl">
+                  {formatarMoeda(
+                    info?.entrada_minima ??
+                      info?.entradaNecessaria ??
+                      info?.entrada_necessaria ??
+                      null
+                  )}
+                </div>
               </div>
-              <div className="text-yellow-400 font-black text-xl">
-                {formatarMoeda(info.entrada_minima)}
-              </div>
-            </div>
-          )}
+            )}
         </div>
       </div>
     );
@@ -526,11 +640,7 @@ const Leads = () => {
                   onClick={() => toggleExpand(lead.id)}
                   className="border-[#173146] bg-transparent text-zinc-400 hover:bg-[#13283b] rounded-xl px-3"
                 >
-                  {isExpanded ? (
-                    <ChevronUp size={18} />
-                  ) : (
-                    <ChevronDown size={18} />
-                  )}
+                  {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                 </Button>
               </div>
 
@@ -547,6 +657,7 @@ const Leads = () => {
                           : "Não informado"}
                       </span>
                     </div>
+
                     <div className="bg-[#07111b]/60 p-3 rounded-xl border border-[#173146]">
                       <span className="text-zinc-500 text-[10px] uppercase font-black tracking-wider block">
                         Renda Mensal
@@ -555,6 +666,7 @@ const Leads = () => {
                         {formatarMoeda(lead.renda)}
                       </span>
                     </div>
+
                     <div className="bg-[#07111b]/60 p-3 rounded-xl border border-[#173146]">
                       <span className="text-zinc-500 text-[10px] uppercase font-black tracking-wider block">
                         Entrada
@@ -563,6 +675,7 @@ const Leads = () => {
                         {formatarMoeda(lead.entrada)}
                       </span>
                     </div>
+
                     <div className="bg-[#07111b]/60 p-3 rounded-xl border border-[#173146]">
                       <span className="text-zinc-500 text-[10px] uppercase font-black tracking-wider block">
                         Saldo a Financiar
@@ -605,6 +718,7 @@ const Leads = () => {
                         {getNomeLojista(lead)}
                       </span>
                     </div>
+
                     <div className="flex justify-between">
                       <span className="text-zinc-500 font-bold uppercase tracking-wider">
                         Vendedor:
@@ -613,6 +727,7 @@ const Leads = () => {
                         {getNomeVendedor(lead)}
                       </span>
                     </div>
+
                     {lead.notificado_em && (
                       <div className="flex justify-between">
                         <span className="text-zinc-500 font-bold uppercase tracking-wider">
@@ -632,9 +747,7 @@ const Leads = () => {
 
         {leads.length === 0 && (
           <div className="text-center py-20 border border-dashed border-[#173146] rounded-2xl bg-[#07111b]/40">
-            <p className="text-zinc-500">
-              Nenhum lead recebido até o momento.
-            </p>
+            <p className="text-zinc-500">Nenhum lead recebido até o momento.</p>
           </div>
         )}
       </div>
@@ -673,6 +786,7 @@ const Leads = () => {
               </TableHead>
             </TableRow>
           </TableHeader>
+
           <TableBody>
             {leads.map((lead) => {
               const whatsappUrl = getWhatsAppLink(
@@ -692,18 +806,22 @@ const Leads = () => {
                   <TableCell className="text-zinc-300 py-4">
                     {formatarData(lead.created_at)}
                   </TableCell>
+
                   <TableCell className="font-bold text-white">
                     <div>{lead.nome}</div>
                     <div className="text-xs text-zinc-500 font-normal mt-0.5">
                       {lead.telefone}
                     </div>
                   </TableCell>
+
                   <TableCell className="text-zinc-300 font-medium">
                     {lead.veiculo_interesse || "Geral"}
                   </TableCell>
+
                   <TableCell className="text-zinc-300 font-medium">
                     {getNomeLojista(lead)}
                   </TableCell>
+
                   <TableCell className="text-zinc-300">
                     <div className="text-xs text-zinc-400">
                       Renda: {formatarMoeda(lead.renda)}
@@ -724,9 +842,11 @@ const Leads = () => {
                         : "Não informado"}
                     </div>
                   </TableCell>
+
                   <TableCell className="text-zinc-300 font-bold">
                     {formatarMoeda(lead.saldo_financiado)}
                   </TableCell>
+
                   <TableCell className="text-zinc-300">
                     <div className="text-xs">
                       12x:{" "}
@@ -753,9 +873,11 @@ const Leads = () => {
                       </span>
                     </div>
                   </TableCell>
+
                   <TableCell className="text-zinc-300 font-medium">
                     {getNomeVendedor(lead)}
                   </TableCell>
+
                   <TableCell>
                     {renderNotificadoBadge(lead.notificado_status)}
                     {lead.notificado_em && (
@@ -764,6 +886,7 @@ const Leads = () => {
                       </div>
                     )}
                   </TableCell>
+
                   <TableCell className="text-center">
                     <div className="flex flex-col gap-2 items-center">
                       <a
@@ -799,9 +922,7 @@ const Leads = () => {
 
         {leads.length === 0 && (
           <div className="text-center py-20">
-            <p className="text-zinc-500">
-              Nenhum lead recebido até o momento.
-            </p>
+            <p className="text-zinc-500">Nenhum lead recebido até o momento.</p>
           </div>
         )}
       </div>

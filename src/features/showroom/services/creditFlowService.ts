@@ -6,11 +6,11 @@ import { calcularResultadosSimulacaoCredito } from "@/features/showroom/utils/cr
 import { showSuccess, showError } from "@/utils/toast";
 
 const LEADS_TABLE = "leads_credito_joinha";
-const SIMULACOES_TABLE = "simulacoes_credito_joinha";
+const SIMULACOES_TABLE = "simu_credito_joinha";
 
 const notificarLeadNoN8N = async (payload: any) => {
   const webhookUrl =
-    "https://semidefensively-hymnological-elvia.ngrok-free.dev/webhook/lead-notificacao";
+    "https://semidefensively-hymnological-elvia.ngrok-free.dev/webhook/a3c917a1-1e38-46cb-810a-724b2b0fdb89";
 
   if (!webhookUrl) {
     throw new Error(
@@ -36,6 +36,72 @@ const notificarLeadNoN8N = async (payload: any) => {
   }
 
   return response.json().catch(() => null);
+};
+
+const normalizarResultadoCredito = (item: any) => {
+  const preAprovado = item?.preAprovado ?? item?.aprovado ?? false;
+
+  const parcelasRaw = item?.parcelas ?? item?.plano ?? 0;
+  const parcelas =
+    typeof parcelasRaw === "string"
+      ? Number(String(parcelasRaw).replace(/\D/g, "")) || 0
+      : Number(parcelasRaw || 0);
+
+  const valorParcela = Number(item?.valorParcela ?? item?.parcela ?? 0);
+  const basePreAprovacao = Number(
+    item?.basePreAprovacao ?? item?.limite_renda ?? 0
+  );
+  const entradaNecessaria = Number(
+    item?.entradaNecessaria ?? item?.entrada_necessaria ?? 0
+  );
+  const acrescimoEntrada = Number(
+    item?.acrescimoEntrada ?? item?.falta_entrada ?? 0
+  );
+
+  return {
+    ...item,
+    parcelas,
+    valorParcela,
+    preAprovado,
+    aprovado: item?.aprovado ?? preAprovado,
+    status: item?.status ?? (preAprovado ? "pre_aprovado" : "ajuste_entrada"),
+    basePreAprovacao,
+    entradaNecessaria,
+    acrescimoEntrada,
+  };
+};
+
+const montarAnaliseLead = (simulationResults: any[]) => {
+  const basePreAprovacao = Number(simulationResults?.[0]?.basePreAprovacao ?? 0);
+
+  const parcelas = Object.fromEntries(
+    (simulationResults || []).map((r) => {
+      const aprovado = r?.preAprovado ?? r?.aprovado ?? false;
+      const chave = `${r?.parcelas}x`;
+
+      return [
+        chave,
+        {
+          valor: Number(Number(r?.valorParcela || 0).toFixed(2)),
+          status: aprovado ? "pre_aprovado" : "ajuste_entrada",
+          texto: aprovado
+            ? "Esta opção está dentro da base de pré-aprovação, considerando até 30% da renda informada."
+            : "Para pré-aprovação neste plano, será necessária uma entrada mínima.",
+          entrada_minima: Number(Number(r?.entradaNecessaria || 0).toFixed(2)),
+          limite_renda: Number(Number(r?.basePreAprovacao || 0).toFixed(2)),
+          base_pre_aprovacao: Number(Number(r?.basePreAprovacao || 0).toFixed(2)),
+          preAprovado: aprovado,
+          aprovado,
+        },
+      ];
+    })
+  );
+
+  return {
+    base_pre_aprovacao: basePreAprovacao,
+    limite_renda: basePreAprovacao,
+    parcelas,
+  };
 };
 
 export const executarAnaliseCredito = async (
@@ -92,11 +158,21 @@ export const executarAnaliseCredito = async (
 
         const dadosN8n = await respostaN8n.json();
 
-        if (!dadosN8n.resultados || !Array.isArray(dadosN8n.resultados)) {
+        const resultadosBrutos =
+          (Array.isArray(dadosN8n?.resultados) && dadosN8n.resultados) ||
+          (Array.isArray(dadosN8n?.data?.resultados) &&
+            dadosN8n.data.resultados) ||
+          (Array.isArray(dadosN8n?.body?.resultados) &&
+            dadosN8n.body.resultados) ||
+          (Array.isArray(dadosN8n?.json?.resultados) && dadosN8n.json.resultados) ||
+          (Array.isArray(dadosN8n) && dadosN8n) ||
+          null;
+
+        if (!resultadosBrutos) {
           throw new Error("Resposta inválida do n8n");
         }
 
-        resultados = dadosN8n.resultados;
+        resultados = resultadosBrutos.map(normalizarResultadoCredito);
       } catch (erro) {
         console.error("Falha na simulação n8n. Usando cálculo local:", erro);
 
@@ -105,7 +181,7 @@ export const executarAnaliseCredito = async (
           entrada,
           renda,
           entradaMinima
-        );
+        ).map(normalizarResultadoCredito);
       }
 
       const possuiPreAprovacao = resultados.some((item) => item.preAprovado);
@@ -127,14 +203,7 @@ export const executarAnaliseCredito = async (
             menorEntradaNecessaria || entradaMinima
           )}`;
 
-      const parcelasJson = resultados.map((item) => ({
-        plano: `${item.parcelas}x`,
-        parcela: Number(item.valorParcela.toFixed(2)),
-        aprovado: item.preAprovado,
-        limite_renda: Number(item.basePreAprovacao.toFixed(2)),
-        entrada_necessaria: Number(item.entradaNecessaria.toFixed(2)),
-        falta_entrada: Number(item.acrescimoEntrada.toFixed(2)),
-      }));
+      const analiseLead = montarAnaliseLead(resultados);
 
       const carroSimulado = `${selectedCar?.marca} ${selectedCar?.modelo}`;
 
@@ -147,7 +216,6 @@ export const executarAnaliseCredito = async (
         entrada: entrada,
         carro: carroSimulado,
         valor_carro: valorCarro,
-        parcelas_json: parcelasJson,
         status: statusSimulacao,
       };
 
@@ -256,8 +324,12 @@ export const confirmarEnvioLead = async (
       agora.getTime() - 10 * 60 * 1000
     ).toISOString();
 
+    const analiseLead = montarAnaliseLead(simulationResults);
+
     // 1) Rodízio
-    const { data, error } = await supabase.rpc("proximo_vendedor_rodizio_joinha");
+    const { data, error } = await supabase.rpc(
+      "proximo_vendedor_rodizio_joinha"
+    );
 
     if (error) {
       showError("Não foi possível designar um vendedor: " + error.message);
@@ -304,6 +376,15 @@ export const confirmarEnvioLead = async (
 
     if (leadsExistentes && leadsExistentes.length > 0) {
       leadId = leadsExistentes[0].id;
+
+      const { error: updateError } = await (supabase as any)
+        .from(LEADS_TABLE)
+        .update({
+          analise: analiseLead,
+        })
+        .eq("id", leadId);
+
+      if (updateError) throw updateError;
     } else {
       // 3) Inserir lead só se não existir um recente igual
       const { data: leadCriado, error: insertError } = await (supabase as any)
@@ -331,6 +412,7 @@ export const confirmarEnvioLead = async (
             vendedor_telefone: vendedorEscolhido.vendedor_telefone,
             notificado_status: "PENDENTE",
             notificado_em: null,
+            analise: analiseLead,
           },
         ])
         .select("id")

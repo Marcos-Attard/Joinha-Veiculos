@@ -448,11 +448,10 @@ const localFallbackSearch = async (filtro: any) => {
     filtro?.termo,
     filtro?.veiculo,
     filtro?.marca,
-    filtro?.modelo,
-    filtro?.original_text
+    filtro?.modelo
   );
 
-  const tokens = tokenize(term || filtro?.original_text || "");
+  const tokens = tokenize(term || "");
   const searchTokens = tokens.filter((t) => /[a-z]/i.test(t));
 
   if (searchTokens.length === 0) {
@@ -500,7 +499,7 @@ export const carregarEstoqueSupabase = async (
       filtro?.modelo
     );
 
-    const tokens = tokenize(term || filtro?.original_text || "");
+    const tokens = tokenize(term || "");
     const searchTokens = tokens.filter((t) => /[a-z]/i.test(t));
     let raw: any[] = [];
 

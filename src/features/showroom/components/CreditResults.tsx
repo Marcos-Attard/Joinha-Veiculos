@@ -111,80 +111,93 @@ const CreditResults: React.FC<CreditResultsProps> = ({
         </div>
 
         <div className="space-y-4">
-          {simulationResults.map((item, i) => (
-            <div
-              key={i}
-              className={cn(
-                "p-6 rounded-[30px] bg-zinc-900/50 border-2 transition-all",
-                item.preAprovado
-                  ? "border-green-500/80 shadow-[0_0_25px_rgba(34,197,94,0.10)]"
-                  : "border-orange-500/80 shadow-[0_0_25px_rgba(249,115,22,0.10)]"
-              )}
-            >
-              <div className="flex justify-between items-start gap-4 mb-5">
-                <div>
-                  <span className="block text-4xl font-black leading-none">
-                    {item.parcelas}X
-                  </span>
-                  <span className="block text-[10px] text-zinc-500 font-black uppercase tracking-widest mt-2">
-                    Parcela estimada
-                  </span>
-                </div>
+          {simulationResults.map((item, i) => {
+            const aprovado = item.preAprovado ?? item.aprovado ?? false;
+            const statusTexto =
+              item.status ??
+              (aprovado ? "PRÉ-APROVADO" : "AJUSTE DE ENTRADA");
+            const basePreAprovacao =
+              item.basePreAprovacao ?? item.limite_renda ?? 0;
+            const entradaNecessaria =
+              item.entradaNecessaria ?? item.entrada_necessaria ?? 0;
+            const acrescimoEntrada =
+              item.acrescimoEntrada ?? item.falta_entrada ?? 0;
 
-                <span
-                  className={cn(
-                    "text-[10px] font-black px-3 py-2 rounded-full bg-black border uppercase text-center",
-                    item.preAprovado
-                      ? "text-green-400 border-green-500/30"
-                      : "text-orange-400 border-orange-500/30"
-                  )}
-                >
-                  {item.status}
-                </span>
-              </div>
-
-              <p className="text-4xl font-black text-white mb-4">
-                {formatarPreco(item.valorParcela)}
-              </p>
-
-              <div className="bg-black/40 rounded-2xl p-4 border border-white/5">
-                <div className="flex justify-between gap-4 text-xs mb-2">
-                  <span className="text-zinc-500 uppercase font-black">
-                    Limite pela renda
-                  </span>
-                  <span className="font-bold text-green-400">
-                    {formatarPreco(item.basePreAprovacao)}
-                  </span>
-                </div>
-
-                {item.preAprovado ? (
-                  <p className="text-green-400 text-[11px] font-black uppercase leading-relaxed mt-3">
-                    Esta opção está dentro da base de pré-aprovação,
-                    considerando até 30% da renda informada.
-                  </p>
-                ) : (
-                  <div className="mt-3 space-y-2">
-                    <p className="text-orange-400 text-[11px] font-black uppercase leading-relaxed">
-                      Para pré-aprovação neste plano, será necessária uma
-                      entrada mínima de:
-                    </p>
-
-                    <p className="text-[#FFD700] text-2xl font-black">
-                      {formatarPreco(item.entradaNecessaria)}
-                    </p>
-
-                    {item.acrescimoEntrada > 0 && (
-                      <p className="text-zinc-400 text-[10px] font-bold uppercase leading-relaxed">
-                        Ou seja, aproximadamente mais{" "}
-                        {formatarPreco(item.acrescimoEntrada)} de entrada
-                        para este plano entrar na base de pré-aprovação.
-                      </p>
-                    )}
-                  </div>
+            return (
+              <div
+                key={i}
+                className={cn(
+                  "p-6 rounded-[30px] bg-zinc-900/50 border-2 transition-all",
+                  aprovado
+                    ? "border-green-500/80 shadow-[0_0_25px_rgba(34,197,94,0.10)]"
+                    : "border-orange-500/80 shadow-[0_0_25px_rgba(249,115,22,0.10)]"
                 )}
+              >
+                <div className="flex justify-between items-start gap-4 mb-5">
+                  <div>
+                    <span className="block text-4xl font-black leading-none">
+                      {item.parcelas}X
+                    </span>
+                    <span className="block text-[10px] text-zinc-500 font-black uppercase tracking-widest mt-2">
+                      Parcela estimada
+                    </span>
+                  </div>
+
+                  <span
+                    className={cn(
+                      "text-[10px] font-black px-3 py-2 rounded-full bg-black border uppercase text-center",
+                      aprovado
+                        ? "text-green-400 border-green-500/30"
+                        : "text-orange-400 border-orange-500/30"
+                    )}
+                  >
+                    {statusTexto}
+                  </span>
+                </div>
+
+                <p className="text-4xl font-black text-white mb-4">
+                  {formatarPreco(item.valorParcela)}
+                </p>
+
+                <div className="bg-black/40 rounded-2xl p-4 border border-white/5">
+                  <div className="flex justify-between gap-4 text-xs mb-2">
+                    <span className="text-zinc-500 uppercase font-black">
+                      Limite pela renda
+                    </span>
+                    <span className="font-bold text-green-400">
+                      {formatarPreco(basePreAprovacao)}
+                    </span>
+                  </div>
+
+                  {aprovado ? (
+                    <p className="text-green-400 text-[11px] font-black uppercase leading-relaxed mt-3">
+                      Esta opção está dentro da base de pré-aprovação,
+                      considerando até 30% da renda informada.
+                    </p>
+                  ) : (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-orange-400 text-[11px] font-black uppercase leading-relaxed">
+                        Para pré-aprovação neste plano, será necessária uma
+                        entrada mínima de:
+                      </p>
+
+                      <p className="text-[#FFD700] text-2xl font-black">
+                        {formatarPreco(entradaNecessaria)}
+                      </p>
+
+                      {acrescimoEntrada > 0 && (
+                        <p className="text-zinc-400 text-[10px] font-bold uppercase leading-relaxed">
+                          Ou seja, aproximadamente mais{" "}
+                          {formatarPreco(acrescimoEntrada)} de entrada
+                          para este plano entrar na base de pré-aprovação.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* BOTÃO FINAL DE AÇÃO E FLUXO DE CONFIRMAÇÃO */}
