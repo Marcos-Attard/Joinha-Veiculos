@@ -524,6 +524,7 @@ export const carregarEstoqueSupabase = async (
         orParts.push(`make.ilike.%${token}%`);
         orParts.push(`version.ilike.%${token}%`);
         orParts.push(`search_text.ilike.%${token}%`);
+        orParts.push(`category.ilike.%${token}%`);
       }
 
       query = query.or(orParts.join(","));
@@ -590,88 +591,6 @@ export const carregarEstoqueSupabase = async (
       {
         id: Date.now().toString(),
         text: "Desculpe, tive um problema ao consultar o estoque agora.",
-        sender: "ai",
-      },
-    ]);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-export const enviarParaN8N = async (
-  textoUsuario: string,
-  lastSearchState: {
-    filter: any;
-    hasMore: boolean;
-    nextOffset: number;
-  },
-  setIsLoading: (loading: boolean) => void,
-  setMessages: React.Dispatch<React.SetStateAction<any[]>>,
-  carregarEstoque: (filtro: any, offset: number) => Promise<void>
-) => {
-  if (isMore(textoUsuario)) {
-    if (lastSearchState.hasMore) {
-      await carregarEstoque(lastSearchState.filter, lastSearchState.nextOffset);
-    } else {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          text: "Não há mais veículos para este filtro.",
-          sender: "ai",
-        },
-      ]);
-    }
-    return;
-  }
-
-  setIsLoading(true);
-
-  try {
-    const data = await enviarMensagemN8N(textoUsuario, "sessao-joinha-showroom");
-
-    const textoResposta =
-      data?.texto ||
-      data?.text ||
-      data?.resposta ||
-      data?.message ||
-      "Entendi. Me diga qual veículo você procura.";
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        text: textoResposta,
-        sender: "ai",
-      },
-    ]);
-
-    if (data?.acao === "BUSCAR_ESTOQUE") {
-      await carregarEstoque(data.filtro || {}, 0);
-    }
-
-    if (data?.acao === "CONTINUAR_BUSCA") {
-      if (lastSearchState.hasMore) {
-        await carregarEstoque(lastSearchState.filter, lastSearchState.nextOffset);
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            text: "Não há mais veículos para este filtro.",
-            sender: "ai",
-          },
-        ]);
-      }
-    }
-  } catch (err) {
-    console.error("Erro n8n:", err);
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        text: "Desculpe, tive um problema ao processar sua solicitação.",
         sender: "ai",
       },
     ]);
