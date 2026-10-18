@@ -298,7 +298,9 @@ const applyFilters = (
   filtro: any,
   options?: { ignoreCategory?: boolean; ignoreVehicleTextFilters?: boolean }
 ) => {
-  const category = normalizeCategory(firstFilled(filtro?.category, filtro?.categoria));
+  const category = normalizeCategory(
+    firstFilled(filtro?.category, filtro?.categoria)
+  );
   const make = firstFilled(filtro?.make, filtro?.marca);
   const model = firstFilled(filtro?.model, filtro?.modelo);
   const baseModel = firstFilled(filtro?.base_model);
@@ -335,7 +337,9 @@ const applyFilters = (
     if (category === "moto") {
       query = query.or("category.ilike.moto,category.ilike.motocicleta");
     } else if (category === "carro") {
-      query = query.or("category.ilike.carro,category.ilike.automovel,category.ilike.automóvel");
+      query = query.or(
+        "category.ilike.carro,category.ilike.automovel,category.ilike.automóvel"
+      );
     } else if (category === "outros") {
       // Não restringe categoria para quadriciclo/ATV/outros.
     } else {
@@ -591,6 +595,88 @@ export const carregarEstoqueSupabase = async (
       {
         id: Date.now().toString(),
         text: "Desculpe, tive um problema ao consultar o estoque agora.",
+        sender: "ai",
+      },
+    ]);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+export const enviarParaN8N = async (
+  textoUsuario: string,
+  lastSearchState: {
+    filter: any;
+    hasMore: boolean;
+    nextOffset: number;
+  },
+  setIsLoading: (loading: boolean) => void,
+  setMessages: React.Dispatch<React.SetStateAction<any[]>>,
+  carregarEstoque: (filtro: any, offset: number) => Promise<void>
+) => {
+  if (isMore(textoUsuario)) {
+    if (lastSearchState.hasMore) {
+      await carregarEstoque(lastSearchState.filter, lastSearchState.nextOffset);
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          text: "Não há mais veículos para este filtro.",
+          sender: "ai",
+        },
+      ]);
+    }
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    const data = await enviarMensagemN8N(textoUsuario, "sessao-joinha-showroom");
+
+    const textoResposta =
+      data?.texto ||
+      data?.text ||
+      data?.resposta ||
+      data?.message ||
+      "Entendi. Me diga qual veículo você procura.";
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        text: textoResposta,
+        sender: "ai",
+      },
+    ]);
+
+    if (data?.acao === "BUSCAR_ESTOQUE") {
+      await carregarEstoque(data.filtro || {}, 0);
+    }
+
+    if (data?.acao === "CONTINUAR_BUSCA") {
+      if (lastSearchState.hasMore) {
+        await carregarEstoque(lastSearchState.filter, lastSearchState.nextOffset);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            text: "Não há mais veículos para este filtro.",
+            sender: "ai",
+          },
+        ]);
+      }
+    }
+  } catch (err) {
+    console.error("Erro n8n:", err);
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        text: "Desculpe, tive um problema ao processar sua solicitação.",
         sender: "ai",
       },
     ]);
